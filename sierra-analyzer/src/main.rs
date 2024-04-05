@@ -19,5 +19,7 @@ fn main() {
     file.read_to_string(&mut content)
         .expect("Failed to read file");
 
-    let _program = sierra_program::SierraProgram::new(content);
+    let program = sierra_program::SierraProgram::new(content);
+
+    println!("{}", program.decompile());
 }
