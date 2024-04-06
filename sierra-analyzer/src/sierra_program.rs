@@ -19,6 +19,7 @@ impl SierraProgram {
                 panic!("Error parsing Sierra code: {}", err);
             }
         };
+
         SierraProgram { program }
     }
 
@@ -47,13 +48,19 @@ impl SierraProgram {
             let long_id = &type_declaration.long_id;
             let generic_id = long_id.generic_id.to_string();
 
-            // Extract the debug names of any generic arguments
-            let debug_name: Vec<_> = long_id
+            // Extract the debug names or id of any generic arguments
+            let debug_name: Vec<String> = long_id
                 .generic_args
                 .iter()
                 .filter_map(|arg| match arg {
-                    GenericArg::UserType(aya) => Some(aya.debug_name.as_ref().unwrap().clone()),
-                    GenericArg::Type(aya) => Some(aya.debug_name.as_ref().unwrap().clone()),
+                    GenericArg::UserType(t) => {
+                        if let Some(name) = t.debug_name.as_ref() {
+                            Some(format!("ut@{}", name))
+                        } else {
+                            Some(format!("ut@[{}]", t.id))
+                        }
+                    }
+                    GenericArg::Type(t) => t.debug_name.as_ref().map(|s| String::from(s.clone())),
                     _ => None,
                 })
                 .collect();
