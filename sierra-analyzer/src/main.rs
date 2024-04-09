@@ -1,3 +1,4 @@
+mod decompiler;
 mod sierra_program;
 
 use std::env;
