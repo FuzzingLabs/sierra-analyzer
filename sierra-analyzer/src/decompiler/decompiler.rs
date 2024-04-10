@@ -1,7 +1,9 @@
 use std::fmt;
 
+use cairo_lang_sierra::program::GenFunction;
 use cairo_lang_sierra::program::GenericArg;
 use cairo_lang_sierra::program::LibfuncDeclaration;
+use cairo_lang_sierra::program::StatementIdx;
 use cairo_lang_sierra::program::TypeDeclaration;
 
 use crate::sierra_program::SierraProgram;
@@ -17,13 +19,14 @@ impl<'a> Decompiler<'a> {
         Decompiler { sierra_program }
     }
 
-    /// Decompiles the Sierra Program 
+    /// Decompiles the Sierra Program
     pub fn decompile(&self) -> String {
         let types = self.decompile_types();
         let libfuncs = self.decompile_libfuncs();
+        let functions = self.decompile_functions();
 
         // Using format! macro to concatenate strings
-        format!("{}\n\n{}", types, libfuncs)
+        format!("{}\n\n{}\n\n{}", types, libfuncs, functions)
     }
 
     /// Decompiles the type declarations
@@ -37,7 +40,7 @@ impl<'a> Decompiler<'a> {
             .join("\n")
     }
 
-    /// Decompiles the libfunc declarations in the Sierra program
+    /// Decompiles the libfunc declarations
     fn decompile_libfuncs(&self) -> String {
         self.sierra_program
             .program()
@@ -130,6 +133,81 @@ impl<'a> Decompiler<'a> {
         let long_id = format!("{}<{}>", generic_id, arguments);
 
         format!("libfunc {} = {};", id, long_id)
+    }
+
+    /// Decompiles the functions declarations
+    fn decompile_functions(&self) -> String {
+        self.sierra_program
+            .program()
+            .funcs
+            .iter()
+            .map(|function_declaration| self.decompile_function(function_declaration))
+            .collect::<Vec<String>>()
+            .join("\n")
+    }
+
+    /// Decompiles a single function declaration
+    fn decompile_function(&self, function_declaration: &GenFunction<StatementIdx>) -> String {
+        // Get the debug name of the function's ID
+        let id = function_declaration
+            .id
+            .debug_name
+            .as_ref()
+            .expect("Function ID missing debug name");
+
+        // Get the function signature, which consists of the parameter types and return types
+        let signature = &function_declaration.signature;
+        let param_types: Vec<String> = signature
+            .param_types
+            .iter()
+            .map(|param_type| {
+                param_type
+                    .debug_name
+                    .as_ref()
+                    .unwrap_or(&format!("[{}]", param_type.id).into())
+                    .to_string()
+            })
+            .collect();
+
+        // Create a list of strings representing the function parameters,
+        // with each string formatted as "<param_name>: <param_type>"
+        let param_strings: Vec<String> = param_types
+            .iter()
+            .zip(function_declaration.params.iter())
+            .map(|(param_type, param)| {
+                format!(
+                    "{}: {}",
+                    param
+                        .id
+                        .debug_name
+                        .as_ref()
+                        .unwrap_or(&format!("v{}", param.id.id).into()),
+                    param_type
+                )
+            })
+            .collect();
+
+        // Join the parameter strings into a single string, separated by commas
+        let param_str = format!("({})", param_strings.join(", "));
+
+        // Create a list of strings representing the function return types
+        let ret_types: Vec<String> = signature
+            .ret_types
+            .iter()
+            .map(|ret_type| {
+                ret_type
+                    .debug_name
+                    .as_ref()
+                    .unwrap_or(&format!("[{}]", ret_type.id).into())
+                    .to_string()
+            })
+            .collect();
+
+        // Join the return type strings into a single string, separated by commas
+        let ret_types_str = format!("{}", ret_types.join(", "));
+
+        // Construct the function declaration string
+        format!("func {}({}) -> ({})", id, param_str, ret_types_str)
     }
 }
 
