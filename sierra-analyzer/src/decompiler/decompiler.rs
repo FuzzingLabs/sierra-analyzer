@@ -28,14 +28,14 @@ impl<'a> Decompiler<'a> {
     pub fn decompile(&mut self) -> String {
         let types = self.decompile_types();
         let libfuncs = self.decompile_libfuncs();
-        let functions = self.decompile_functions();
+        let functions_prototypes = self.decompile_functions_prototypes();
 
         // Load statements into their corresponding functions
         self.set_functions_offsets();
         self.add_statements_to_functions();
 
         // Using format! macro to concatenate strings
-        format!("{}\n\n{}\n\n{}", types, libfuncs, functions)
+        format!("{}\n\n{}\n\n{}", types, libfuncs, functions_prototypes)
     }
 
     /// Decompiles the type declarations
@@ -144,62 +144,29 @@ impl<'a> Decompiler<'a> {
         format!("libfunc {} = {};", id, long_id)
     }
 
-    /// Decompiles the functions declarations
-    fn decompile_functions(&mut self) -> String {
-        self.sierra_program
+    /// Decompiles the functions prototypes
+    fn decompile_functions_prototypes(&mut self) -> String {
+        let prototypes: Vec<String> = self
+            .sierra_program
             .program()
             .funcs
             .iter()
-            .map(|function_declaration| self.decompile_function(function_declaration))
-            .collect::<Vec<String>>()
-            .join("\n")
-    }
+            .map(|function_prototype| self.decompile_function_prototype(function_prototype))
+            .collect();
 
-    /// Sets the start and end offsets for each function in the Sierra program
-    fn set_functions_offsets(&mut self) {
-        let num_functions = self.sierra_program.program().funcs.len();
-
-        for (i, function_declaration) in self.sierra_program.program().funcs.iter().enumerate() {
-            let mut function = Function::new(function_declaration);
-            function.set_start_offset(function_declaration.entry_point.0.try_into().unwrap());
-
-            // Set the end offset of the current function to the start offset of the next function minus one
-            if i < num_functions - 1 {
-                let next_function_declaration = &self.sierra_program.program().funcs[i + 1];
-                let next_start_offset: u32 =
-                    next_function_declaration.entry_point.0.try_into().unwrap();
-                function.set_end_offset(next_start_offset - 1);
-            }
-
-            self.functions.push(function);
+        // Set prototypes for corresponding Function structs
+        for (prototype, function) in prototypes.iter().zip(self.functions.iter_mut()) {
+            function.set_prototype(prototype.clone());
         }
 
-        // Set the end offset of the last function to the total number of statements
-        if let Some(last_function) = self.functions.last_mut() {
-            let total_statements = self.sierra_program.program().statements.len() as u16;
-            last_function.set_end_offset(total_statements.into());
-        }
+        prototypes.join("\n")
     }
 
-    /// Adds the corresponding statements to each function in the Sierra program
-    fn add_statements_to_functions(&mut self) {
-        for function in &mut self.functions {
-            let start_offset = function.start_offset;
-            let end_offset = function.end_offset;
-            let statements: Vec<Statement> = self
-                .sierra_program
-                .program()
-                .statements
-                .iter()
-                .take((end_offset.unwrap() - start_offset.unwrap()) as usize)
-                .cloned()
-                .collect();
-            function.set_statements(statements);
-        }
-    }
-
-    /// Decompiles a single function declaration
-    fn decompile_function(&self, function_declaration: &GenFunction<StatementIdx>) -> String {
+    /// Decompiles a single function prototype
+    fn decompile_function_prototype(
+        &self,
+        function_declaration: &GenFunction<StatementIdx>,
+    ) -> String {
         // Get the debug name of the function's ID
         let id = function_declaration
             .id
@@ -260,5 +227,48 @@ impl<'a> Decompiler<'a> {
 
         // Construct the function declaration string
         format!("func {}({}) -> ({})", id, param_str, ret_types_str)
+    }
+
+    /// Sets the start and end offsets for each function in the Sierra program
+    fn set_functions_offsets(&mut self) {
+        let num_functions = self.sierra_program.program().funcs.len();
+
+        for (i, function_declaration) in self.sierra_program.program().funcs.iter().enumerate() {
+            let mut function = Function::new(function_declaration);
+            function.set_start_offset(function_declaration.entry_point.0.try_into().unwrap());
+
+            // Set the end offset of the current function to the start offset of the next function minus one
+            if i < num_functions - 1 {
+                let next_function_declaration = &self.sierra_program.program().funcs[i + 1];
+                let next_start_offset: u32 =
+                    next_function_declaration.entry_point.0.try_into().unwrap();
+                function.set_end_offset(next_start_offset - 1);
+            }
+
+            self.functions.push(function);
+        }
+
+        // Set the end offset of the last function to the total number of statements
+        if let Some(last_function) = self.functions.last_mut() {
+            let total_statements = self.sierra_program.program().statements.len() as u16;
+            last_function.set_end_offset(total_statements.into());
+        }
+    }
+
+    /// Adds the corresponding statements to each function in the Sierra program
+    fn add_statements_to_functions(&mut self) {
+        for function in &mut self.functions {
+            let start_offset = function.start_offset;
+            let end_offset = function.end_offset;
+            let statements: Vec<Statement> = self
+                .sierra_program
+                .program()
+                .statements
+                .iter()
+                .take((end_offset.unwrap() - start_offset.unwrap()) as usize)
+                .cloned()
+                .collect();
+            function.set_statements(statements);
+        }
     }
 }

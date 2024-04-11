@@ -27,6 +27,8 @@ pub struct Function<'a> {
     statements: Vec<Statement>,
     /// A `ControlFlowGraph` representing the function's CFG
     cfg: ControlFlowGraph,
+    /// The prototype of the function
+    prototype: Option<String>,
 }
 
 impl<'a> Function<'a> {
@@ -38,6 +40,7 @@ impl<'a> Function<'a> {
             start_offset: None,
             end_offset: None,
             cfg: ControlFlowGraph::new(),
+            prototype: None,
         }
     }
 
@@ -60,5 +63,22 @@ impl<'a> Function<'a> {
     /// Sets the statements for the function's body
     pub fn set_statements(&mut self, statements: Vec<Statement>) {
         self.statements = statements;
+    }
+
+    /// Returns the statements in the function's body as a string
+    pub fn statements_as_string(&self) -> String {
+        let mut statement_strings = Vec::new();
+
+        for statement in &self.statements {
+            let statement_string = statement.to_string();
+            statement_strings.push(statement_string);
+        }
+
+        statement_strings.join("\n")
+    }
+
+    /// Sets the prototype of the function
+    pub fn set_prototype(&mut self, prototype: String) {
+        self.prototype = Some(prototype);
     }
 }
