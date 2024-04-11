@@ -21,6 +21,7 @@ fn main() {
         .expect("Failed to read file");
 
     let program = sierra_program::SierraProgram::new(content);
+    let mut decompiler = program.decompiler();
 
-    println!("{}", program.decompile());
+    println!("{}", decompiler.decompile());
 }

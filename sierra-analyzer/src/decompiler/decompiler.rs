@@ -1,26 +1,30 @@
-use std::fmt;
-
 use cairo_lang_sierra::program::GenFunction;
 use cairo_lang_sierra::program::GenericArg;
 use cairo_lang_sierra::program::LibfuncDeclaration;
 use cairo_lang_sierra::program::StatementIdx;
 use cairo_lang_sierra::program::TypeDeclaration;
 
+use crate::decompiler::function::Function;
 use crate::sierra_program::SierraProgram;
 
 /// A struct that represents a decompiler for a Sierra program
 pub struct Decompiler<'a> {
     /// A reference to the Sierra program to decompile
     sierra_program: &'a SierraProgram,
+    /// Program functions
+    functions: Vec<Function<'a>>,
 }
 
 impl<'a> Decompiler<'a> {
     pub fn new(sierra_program: &'a SierraProgram) -> Self {
-        Decompiler { sierra_program }
+        Decompiler {
+            sierra_program,
+            functions: Vec::new(),
+        }
     }
 
     /// Decompiles the Sierra Program
-    pub fn decompile(&self) -> String {
+    pub fn decompile(&mut self) -> String {
         let types = self.decompile_types();
         let libfuncs = self.decompile_libfuncs();
         let functions = self.decompile_functions();
@@ -136,7 +140,12 @@ impl<'a> Decompiler<'a> {
     }
 
     /// Decompiles the functions declarations
-    fn decompile_functions(&self) -> String {
+    fn decompile_functions(&mut self) -> String {
+        for function_declaration in &self.sierra_program.program().funcs {
+            let function = Function::new(function_declaration);
+            self.functions.push(function);
+        }
+
         self.sierra_program
             .program()
             .funcs
@@ -208,12 +217,5 @@ impl<'a> Decompiler<'a> {
 
         // Construct the function declaration string
         format!("func {}({}) -> ({})", id, param_str, ret_types_str)
-    }
-}
-
-impl<'a> fmt::Display for Decompiler<'a> {
-    /// Formats the decompiled Sierra program as a string.
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.decompile())
     }
 }

@@ -4,7 +4,6 @@ use cairo_lang_sierra::ProgramParser;
 use crate::decompiler::decompiler::Decompiler;
 
 /// A struct that represents a Sierra program
-#[derive(Debug)]
 #[allow(dead_code)]
 pub struct SierraProgram {
     /// The parsed Sierra program
@@ -30,7 +29,7 @@ impl SierraProgram {
     }
 
     /// Decompiles the Sierra program and returns a `Decompiler` instance
-    pub fn decompile(&self) -> Decompiler {
+    pub fn decompiler(&self) -> Decompiler {
         Decompiler::new(self)
     }
 }
