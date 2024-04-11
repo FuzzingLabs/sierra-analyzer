@@ -28,14 +28,19 @@ impl<'a> Decompiler<'a> {
     pub fn decompile(&mut self) -> String {
         let types = self.decompile_types();
         let libfuncs = self.decompile_libfuncs();
-        let functions_prototypes = self.decompile_functions_prototypes();
 
         // Load statements into their corresponding functions
         self.set_functions_offsets();
+        let functions_prototypes = self.decompile_functions_prototypes();
         self.add_statements_to_functions();
+        // Decompile the functions
+        let functions = self.decompile_functions();
 
         // Using format! macro to concatenate strings
-        format!("{}\n\n{}\n\n{}", types, libfuncs, functions_prototypes)
+        format!(
+            "{}\n\n{}\n\n{}\n\n{}",
+            types, libfuncs, functions, functions_prototypes
+        )
     }
 
     /// Decompiles the type declarations
@@ -270,5 +275,23 @@ impl<'a> Decompiler<'a> {
                 .collect();
             function.set_statements(statements);
         }
+    }
+
+    /// Decompiles the functions
+    pub fn decompile_functions(&self) -> String {
+        self.functions
+            .iter()
+            .map(|function| {
+                let prototype = function.prototype.as_ref().unwrap(); // Assuming prototype is always set
+                let body = function.statements_as_string();
+                let indented_body = body
+                    .lines()
+                    .map(|line| format!("    {}", line))
+                    .collect::<Vec<String>>()
+                    .join("\n");
+                format!("{} {{\n{}\n}}", prototype, indented_body)
+            })
+            .collect::<Vec<String>>()
+            .join("\n\n")
     }
 }

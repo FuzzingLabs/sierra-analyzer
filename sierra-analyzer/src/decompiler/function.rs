@@ -28,7 +28,7 @@ pub struct Function<'a> {
     /// A `ControlFlowGraph` representing the function's CFG
     cfg: ControlFlowGraph,
     /// The prototype of the function
-    prototype: Option<String>,
+    pub prototype: Option<String>,
 }
 
 impl<'a> Function<'a> {
