@@ -20,9 +20,9 @@ pub struct Function<'a> {
     /// The function's `GenFunction` representation
     function: &'a GenFunction<StatementIdx>,
     // Function start offset
-    start_offset: Option<u32>,
+    pub start_offset: Option<u32>,
     // Function end offset
-    end_offset: Option<u32>,
+    pub end_offset: Option<u32>,
     /// A vector of `Statement`s representing the function's body
     statements: Vec<Statement>,
     /// A `ControlFlowGraph` representing the function's CFG
@@ -57,9 +57,8 @@ impl<'a> Function<'a> {
         self.end_offset = Some(end_offset);
     }
 
-    /// Adds a `Statement` to the function's body
-    #[allow(dead_code)]
-    pub fn push_statement(&mut self, statement: Statement) {
-        self.statements.push(statement);
+    /// Sets the statements for the function's body
+    pub fn set_statements(&mut self, statements: Vec<Statement>) {
+        self.statements = statements;
     }
 }

@@ -1,6 +1,7 @@
 use cairo_lang_sierra::program::GenFunction;
 use cairo_lang_sierra::program::GenericArg;
 use cairo_lang_sierra::program::LibfuncDeclaration;
+use cairo_lang_sierra::program::Statement;
 use cairo_lang_sierra::program::StatementIdx;
 use cairo_lang_sierra::program::TypeDeclaration;
 
@@ -12,7 +13,7 @@ pub struct Decompiler<'a> {
     /// A reference to the Sierra program to decompile
     sierra_program: &'a SierraProgram,
     /// Program functions
-    functions: Vec<Function<'a>>,
+    pub functions: Vec<Function<'a>>,
 }
 
 impl<'a> Decompiler<'a> {
@@ -28,6 +29,10 @@ impl<'a> Decompiler<'a> {
         let types = self.decompile_types();
         let libfuncs = self.decompile_libfuncs();
         let functions = self.decompile_functions();
+
+        // Load statements into their corresponding functions
+        self.set_functions_offsets();
+        self.add_statements_to_functions();
 
         // Using format! macro to concatenate strings
         format!("{}\n\n{}\n\n{}", types, libfuncs, functions)
@@ -141,8 +146,6 @@ impl<'a> Decompiler<'a> {
 
     /// Decompiles the functions declarations
     fn decompile_functions(&mut self) -> String {
-        self.set_functions_offsets();
-
         self.sierra_program
             .program()
             .funcs
@@ -175,6 +178,23 @@ impl<'a> Decompiler<'a> {
         if let Some(last_function) = self.functions.last_mut() {
             let total_statements = self.sierra_program.program().statements.len() as u16;
             last_function.set_end_offset(total_statements.into());
+        }
+    }
+
+    /// Adds the corresponding statements to each function in the Sierra program
+    fn add_statements_to_functions(&mut self) {
+        for function in &mut self.functions {
+            let start_offset = function.start_offset;
+            let end_offset = function.end_offset;
+            let statements: Vec<Statement> = self
+                .sierra_program
+                .program()
+                .statements
+                .iter()
+                .take((end_offset.unwrap() - start_offset.unwrap()) as usize)
+                .cloned()
+                .collect();
+            function.set_statements(statements);
         }
     }
 
