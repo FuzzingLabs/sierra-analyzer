@@ -141,10 +141,7 @@ impl<'a> Decompiler<'a> {
 
     /// Decompiles the functions declarations
     fn decompile_functions(&mut self) -> String {
-        for function_declaration in &self.sierra_program.program().funcs {
-            let function = Function::new(function_declaration);
-            self.functions.push(function);
-        }
+        self.set_functions_offsets();
 
         self.sierra_program
             .program()
@@ -153,6 +150,32 @@ impl<'a> Decompiler<'a> {
             .map(|function_declaration| self.decompile_function(function_declaration))
             .collect::<Vec<String>>()
             .join("\n")
+    }
+
+    /// Sets the start and end offsets for each function in the Sierra program
+    fn set_functions_offsets(&mut self) {
+        let num_functions = self.sierra_program.program().funcs.len();
+
+        for (i, function_declaration) in self.sierra_program.program().funcs.iter().enumerate() {
+            let mut function = Function::new(function_declaration);
+            function.set_start_offset(function_declaration.entry_point.0.try_into().unwrap());
+
+            // Set the end offset of the current function to the start offset of the next function minus one
+            if i < num_functions - 1 {
+                let next_function_declaration = &self.sierra_program.program().funcs[i + 1];
+                let next_start_offset: u32 =
+                    next_function_declaration.entry_point.0.try_into().unwrap();
+                function.set_end_offset(next_start_offset - 1);
+            }
+
+            self.functions.push(function);
+        }
+
+        // Set the end offset of the last function to the total number of statements
+        if let Some(last_function) = self.functions.last_mut() {
+            let total_statements = self.sierra_program.program().statements.len() as u16;
+            last_function.set_end_offset(total_statements.into());
+        }
     }
 
     /// Decompiles a single function declaration
