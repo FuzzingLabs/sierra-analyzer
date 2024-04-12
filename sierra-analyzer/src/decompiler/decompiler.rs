@@ -1,11 +1,11 @@
 use cairo_lang_sierra::program::GenFunction;
 use cairo_lang_sierra::program::GenericArg;
 use cairo_lang_sierra::program::LibfuncDeclaration;
-use cairo_lang_sierra::program::Statement;
 use cairo_lang_sierra::program::StatementIdx;
 use cairo_lang_sierra::program::TypeDeclaration;
 
 use crate::decompiler::function::Function;
+use crate::decompiler::function::SierraStatement;
 use crate::sierra_program::SierraProgram;
 
 /// A struct that represents a decompiler for a Sierra program
@@ -260,20 +260,30 @@ impl<'a> Decompiler<'a> {
         }
     }
 
-    /// Adds the corresponding statements to each function in the Sierra program
+    /// Adds the corresponding statements and offsets to each function in the Sierra program
     fn add_statements_to_functions(&mut self) {
         for function in &mut self.functions {
-            let start_offset = function.start_offset;
-            let end_offset = function.end_offset;
-            let statements: Vec<Statement> = self
+            let start_offset = function.start_offset.unwrap();
+            let end_offset = function.end_offset.unwrap();
+
+            // Filter statements based on offset range and map them with their offsets
+            let statements_with_offsets: Vec<SierraStatement> = self
                 .sierra_program
                 .program()
                 .statements
                 .iter()
-                .take((end_offset.unwrap() - start_offset.unwrap()) as usize)
-                .cloned()
+                .enumerate()
+                .filter_map(|(idx, statement)| {
+                    let offset = idx as u32;
+                    if offset >= start_offset && offset < end_offset {
+                        Some(SierraStatement::new(statement.clone(), offset))
+                    } else {
+                        None
+                    }
+                })
                 .collect();
-            function.set_statements(statements);
+
+            function.set_statements(statements_with_offsets);
         }
     }
 

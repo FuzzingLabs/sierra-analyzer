@@ -1,6 +1,51 @@
 use cairo_lang_sierra::program::GenFunction;
-use cairo_lang_sierra::program::Statement;
 use cairo_lang_sierra::program::StatementIdx;
+
+/// Enum representing different types of CFG edges
+#[allow(dead_code)]
+#[derive(Debug)]
+enum EdgeType {
+    Unconditional,
+    ConditionalTrue,
+    ConditionalFalse,
+    Fallthrough,
+}
+
+/// Struct representing a control flow graph (CFG) edge
+#[allow(dead_code)]
+#[derive(Debug)]
+struct Edge {
+    source: usize,
+    destination: usize,
+    edge_type: EdgeType,
+}
+
+impl Edge {
+    /// Creates a new `Edge` instance
+    #[allow(dead_code)]
+    pub fn new(source: usize, destination: usize, edge_type: EdgeType) -> Self {
+        Self {
+            source,
+            destination,
+            edge_type,
+        }
+    }
+}
+
+/// A struct representing a statement in a Sierra program with an offset
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct SierraStatement {
+    statement: cairo_lang_sierra::program::Statement,
+    offset: u32,
+}
+
+impl SierraStatement {
+    /// Creates a new `SierraStatement` instance with an offset
+    pub fn new(statement: cairo_lang_sierra::program::Statement, offset: u32) -> Self {
+        Self { statement, offset }
+    }
+}
 
 /// A struct representing a control flow graph (CFG) for a function
 #[derive(Debug)]
@@ -23,8 +68,8 @@ pub struct Function<'a> {
     pub start_offset: Option<u32>,
     // Function end offset
     pub end_offset: Option<u32>,
-    /// A vector of `Statement`s representing the function's body
-    statements: Vec<Statement>,
+    /// A vector of `SierraStatement` instances representing the function's body with offsets
+    statements: Vec<SierraStatement>,
     /// A `ControlFlowGraph` representing the function's CFG
     cfg: ControlFlowGraph,
     /// The prototype of the function
@@ -46,7 +91,7 @@ impl<'a> Function<'a> {
 
     /// Returns a reference to the statements in the function's body
     #[allow(dead_code)]
-    pub fn statements(&self) -> &Vec<Statement> {
+    pub fn statements(&self) -> &Vec<SierraStatement> {
         &self.statements
     }
 
@@ -61,20 +106,17 @@ impl<'a> Function<'a> {
     }
 
     /// Sets the statements for the function's body
-    pub fn set_statements(&mut self, statements: Vec<Statement>) {
+    pub fn set_statements(&mut self, statements: Vec<SierraStatement>) {
         self.statements = statements;
     }
 
     /// Returns the statements in the function's body as a string
     pub fn statements_as_string(&self) -> String {
-        let mut statement_strings = Vec::new();
-
-        for statement in &self.statements {
-            let statement_string = statement.to_string();
-            statement_strings.push(statement_string);
-        }
-
-        statement_strings.join("\n")
+        self.statements
+            .iter()
+            .map(|stmt| stmt.statement.to_string())
+            .collect::<Vec<String>>()
+            .join("\n")
     }
 
     /// Sets the prototype of the function
