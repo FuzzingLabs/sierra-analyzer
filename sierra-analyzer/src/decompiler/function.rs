@@ -4,7 +4,7 @@ use cairo_lang_sierra::program::StatementIdx;
 /// Enum representing different types of CFG edges
 #[allow(dead_code)]
 #[derive(Debug)]
-enum EdgeType {
+pub enum EdgeType {
     Unconditional,
     ConditionalTrue,
     ConditionalFalse,
@@ -14,7 +14,7 @@ enum EdgeType {
 /// Struct representing a control flow graph (CFG) edge
 #[allow(dead_code)]
 #[derive(Debug)]
-struct Edge {
+pub struct Edge {
     source: usize,
     destination: usize,
     edge_type: EdgeType,
@@ -29,6 +29,59 @@ impl Edge {
             destination,
             edge_type,
         }
+    }
+}
+
+/// Struct representing a Sierra Control-Flow Graph basic block
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct BasicBlock {
+    /// Basic block delimitations
+    start_statement: SierraStatement,
+    start_offset: u32,
+    end_offset: Option<u32>,
+    /// Name of the basic block
+    name: String,
+    /// Instructions (statements) in the basic block
+    statements: Vec<SierraStatement>,
+    /// Edges of the basic block
+    edges: Vec<Edge>,
+}
+
+#[allow(dead_code)]
+impl BasicBlock {
+    /// Creates a new `BasicBlock` instance
+    pub fn new(start_statement: SierraStatement) -> Self {
+        let start_offset = start_statement.offset;
+        let name = format!("bb_{}", start_offset);
+        BasicBlock {
+            start_statement,
+            start_offset,
+            end_offset: None,
+            name,
+            statements: Vec::new(),
+            edges: Vec::new(),
+        }
+    }
+
+    /// Returns the name of the basic block
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Adds a statement to the basic block
+    pub fn add_statement(&mut self, statement: SierraStatement) {
+        self.statements.push(statement);
+    }
+
+    /// Adds an edge to the basic block
+    pub fn add_edge(&mut self, edge: Edge) {
+        self.edges.push(edge);
+    }
+
+    /// Sets the end offset of the basic block
+    pub fn set_end_offset(&mut self, end_offset: u32) {
+        self.end_offset = Some(end_offset);
     }
 }
 
