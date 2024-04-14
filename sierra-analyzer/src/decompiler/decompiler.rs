@@ -212,7 +212,7 @@ impl<'a> Decompiler<'a> {
             .collect();
 
         // Join the parameter strings into a single string, separated by commas
-        let param_str = format!("({})", param_strings.join(", "));
+        let param_str = format!("{}", param_strings.join(", "));
 
         // Create a list of strings representing the function return types
         let ret_types: Vec<String> = signature

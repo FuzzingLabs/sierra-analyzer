@@ -85,6 +85,51 @@ impl BasicBlock {
     }
 }
 
+/// Struct representing a Sierra conditional branch
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct SierraConditionalBranch<'a> {
+    // Inherit SierraStatement's fields
+    statement: SierraStatement,
+    // Function reference
+    function: &'a Function<'a>,
+    // TODO: Create a Variable object
+    parameters: Vec<String>,
+    // Edges offsets
+    edge_1_offset: u32,
+    edge_2_offset: Option<u32>,
+    // Fallthrough conditional branch
+    fallthrough: bool,
+}
+
+impl<'a> SierraConditionalBranch<'a> {
+    /// Creates a new `SierraConditionalBranch` instance
+    #[allow(dead_code)]
+    pub fn new(
+        statement: SierraStatement,
+        function: &'a Function<'a>,
+        // TODO: Create a Variable object
+        parameters: Vec<String>,
+        edge_1_offset: u32,
+        edge_2_offset: Option<u32>,
+        fallthrough: bool,
+    ) -> Self {
+        let mut edge_2_offset = edge_2_offset;
+        if fallthrough && edge_2_offset.is_none() {
+            edge_2_offset = Some(statement.offset);
+        }
+
+        SierraConditionalBranch {
+            statement,
+            function,
+            parameters,
+            edge_1_offset,
+            edge_2_offset,
+            fallthrough,
+        }
+    }
+}
+
 /// A struct representing a statement in a Sierra program with an offset
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -124,7 +169,7 @@ pub struct Function<'a> {
     /// A vector of `SierraStatement` instances representing the function's body with offsets
     statements: Vec<SierraStatement>,
     /// A `ControlFlowGraph` representing the function's CFG
-    cfg: ControlFlowGraph,
+    cfg: Option<ControlFlowGraph>,
     /// The prototype of the function
     pub prototype: Option<String>,
 }
@@ -137,9 +182,19 @@ impl<'a> Function<'a> {
             statements: Vec::new(),
             start_offset: None,
             end_offset: None,
-            cfg: ControlFlowGraph::new(),
+            cfg: None,
             prototype: None,
         }
+    }
+
+    /// Initializes the control flow graph (CFG) for the function
+    #[allow(dead_code)]
+    pub fn init_cfg(&mut self) {
+        // Create a new control flow graph instance
+        let cfg = ControlFlowGraph::new();
+
+        // Assign the control flow graph to the function's CFG field
+        self.cfg = Some(cfg);
     }
 
     /// Returns a reference to the statements in the function's body
