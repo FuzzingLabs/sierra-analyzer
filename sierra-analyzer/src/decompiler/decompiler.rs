@@ -288,20 +288,34 @@ impl<'a> Decompiler<'a> {
     }
 
     /// Decompiles the functions
-    pub fn decompile_functions(&self) -> String {
-        self.functions
-            .iter()
-            .map(|function| {
-                let prototype = function.prototype.as_ref().unwrap(); // Assuming prototype is always set
-                let body = function.statements_as_string();
-                let indented_body = body
-                    .lines()
-                    .map(|line| format!("    {}", line))
-                    .collect::<Vec<String>>()
-                    .join("\n");
-                format!("{} {{\n{}\n}}", prototype, indented_body)
-            })
-            .collect::<Vec<String>>()
-            .join("\n\n")
+    pub fn decompile_functions(&mut self) -> String {
+        // Initialize CFG for each function
+        for function in &mut self.functions {
+            function.create_cfg();
+        }
+
+        // Collect function decompilations
+        let function_decompilations: Vec<String> = {
+            let functions = &self.functions;
+            functions
+                .iter()
+                .map(|function| {
+                    let prototype = function
+                        .prototype
+                        .as_ref()
+                        .expect("Function prototype not set");
+                    let body = function.statements_as_string();
+                    let indented_body = body
+                        .lines()
+                        .map(|line| format!("    {}", line))
+                        .collect::<Vec<String>>()
+                        .join("\n");
+                    format!("{} {{\n{}\n}}", prototype, indented_body)
+                })
+                .collect()
+        };
+
+        // Return function decompilations joined by newlines
+        function_decompilations.join("\n\n")
     }
 }

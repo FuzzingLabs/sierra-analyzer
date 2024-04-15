@@ -1,4 +1,6 @@
+use cairo_lang_sierra::program::BranchTarget;
 use cairo_lang_sierra::program::GenFunction;
+use cairo_lang_sierra::program::GenStatement;
 use cairo_lang_sierra::program::StatementIdx;
 
 /// Enum representing different types of CFG edges
@@ -132,7 +134,7 @@ impl<'a> SierraConditionalBranch<'a> {
 
 /// A struct representing a statement in a Sierra program with an offset
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SierraStatement {
     statement: cairo_lang_sierra::program::Statement,
     offset: u32,
@@ -146,13 +148,61 @@ impl SierraStatement {
 }
 
 /// A struct representing a control flow graph (CFG) for a function
+#[allow(dead_code)]
 #[derive(Debug)]
-pub struct ControlFlowGraph {}
+pub struct ControlFlowGraph {
+    statements: Vec<SierraStatement>,
+    start_offset: u32,
+    basic_blocks: Vec<BasicBlock>,
+}
 
-impl ControlFlowGraph {
+impl<'a> ControlFlowGraph {
     /// Creates a new `ControlFlowGraph` instance
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(statements: Vec<SierraStatement>, start_offset: u32) -> Self {
+        Self {
+            statements,
+            start_offset,
+            basic_blocks: Vec::new(),
+        }
+    }
+
+    /// Gets the start and end offsets of basic blocks within the function's control flow graph
+    pub fn get_basic_blocks_delimitations(&self) -> (Vec<u32>, Vec<u32>) {
+        // Initialize vectors to store the start and end offsets of basic blocks
+        let mut basic_blocks_starts = vec![self.start_offset];
+        let mut basic_blocks_ends = vec![];
+
+        // Iterate over each statement in the function
+        for statement in &self.statements {
+            // Match the type of statement
+            match &statement.statement {
+                // If it's a return statement, add its offset to the list of basic block ends
+                GenStatement::Return(_) => {
+                    basic_blocks_ends.push(statement.offset);
+                }
+                // If it's an invocation statement
+                GenStatement::Invocation(invocation) => {
+                    // Iterate over each branch target of the invocation
+                    for target in &invocation.branches {
+                        // Match the branch target type
+                        match &target.target {
+                            // If it's a statement target
+                            BranchTarget::Statement(statement_idx) => {
+                                // Add the offset of the statement after the invocation as the start of a new basic block
+                                basic_blocks_starts.push(statement.offset + 1);
+                                // Add the offset of the targeted statement as the start of a new basic block
+                                basic_blocks_starts.push(statement_idx.0.try_into().unwrap());
+                            }
+                            // Ignore other types of branch targets
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+
+        // Return the vectors containing the start and end offsets of basic blocks
+        (basic_blocks_starts, basic_blocks_ends)
     }
 }
 
@@ -188,11 +238,10 @@ impl<'a> Function<'a> {
     }
 
     /// Initializes the control flow graph (CFG) for the function
-    #[allow(dead_code)]
-    pub fn init_cfg(&mut self) {
+    pub fn create_cfg(&mut self) {
         // Create a new control flow graph instance
-        let cfg = ControlFlowGraph::new();
-
+        let cfg = ControlFlowGraph::new(self.statements.clone(), self.start_offset.unwrap());
+        cfg.get_basic_blocks_delimitations();
         // Assign the control flow graph to the function's CFG field
         self.cfg = Some(cfg);
     }
