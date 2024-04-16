@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use cairo_lang_sierra::program::BranchTarget;
 use cairo_lang_sierra::program::GenFunction;
 use cairo_lang_sierra::program::GenStatement;
@@ -377,6 +379,42 @@ impl<'a> ControlFlowGraph {
 
         // Push the last basic block to the list
         self.basic_blocks.push(current_basic_block);
+    }
+
+    /// Returns the children blocks of a basic block
+    #[allow(dead_code)]
+    fn children(&self, block: &BasicBlock) -> Vec<&BasicBlock> {
+        let mut children = Vec::new();
+        let edges_destinations: HashSet<_> =
+            block.edges.iter().map(|edge| edge.destination).collect();
+
+        // Find all blocks having an edge with the current block as source
+        for basic_block in &self.basic_blocks {
+            if edges_destinations.contains(&basic_block.start_offset) {
+                children.push(basic_block);
+            }
+        }
+        children
+    }
+
+    /// Returns the parent blocks of a basic block
+    #[allow(dead_code)]
+    fn parents(&self, block: &BasicBlock) -> Vec<&BasicBlock> {
+        let mut parents = Vec::new();
+        let start_offset = block.start_offset;
+
+        // Find all blocks having an edge with the current block as destination
+        for basic_block in &self.basic_blocks {
+            let edges_offset: Vec<_> = basic_block
+                .edges
+                .iter()
+                .map(|edge| edge.destination)
+                .collect();
+            if edges_offset.contains(&start_offset) {
+                parents.push(basic_block);
+            }
+        }
+        parents
     }
 }
 
