@@ -4,8 +4,7 @@ use cairo_lang_sierra::program::GenStatement;
 use cairo_lang_sierra::program::StatementIdx;
 
 /// Enum representing different types of CFG edges
-#[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EdgeType {
     Unconditional,
     ConditionalTrue,
@@ -14,18 +13,18 @@ pub enum EdgeType {
 }
 
 /// Struct representing a control flow graph (CFG) edge
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
-#[derive(Debug)]
 pub struct Edge {
-    source: usize,
-    destination: usize,
+    source: u32,
+    destination: u32,
     edge_type: EdgeType,
 }
 
 impl Edge {
     /// Creates a new `Edge` instance
     #[allow(dead_code)]
-    pub fn new(source: usize, destination: usize, edge_type: EdgeType) -> Self {
+    pub fn new(source: u32, destination: u32, edge_type: EdgeType) -> Self {
         Self {
             source,
             destination,
@@ -35,8 +34,8 @@ impl Edge {
 }
 
 /// Struct representing a Sierra Control-Flow Graph basic block
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
-#[derive(Debug)]
 pub struct BasicBlock {
     /// Basic block delimitations
     start_statement: SierraStatement,
@@ -90,29 +89,29 @@ impl BasicBlock {
 /// Struct representing a Sierra conditional branch
 #[allow(dead_code)]
 #[derive(Debug)]
-pub struct SierraConditionalBranch<'a> {
+pub struct SierraConditionalBranch {
     // Inherit SierraStatement's fields
     statement: SierraStatement,
-    // Function reference
-    function: &'a Function<'a>,
+    // Function name
+    function: String,
     // TODO: Create a Variable object
     parameters: Vec<String>,
     // Edges offsets
-    edge_1_offset: u32,
+    edge_1_offset: Option<u32>,
     edge_2_offset: Option<u32>,
     // Fallthrough conditional branch
     fallthrough: bool,
 }
 
-impl<'a> SierraConditionalBranch<'a> {
+impl SierraConditionalBranch {
     /// Creates a new `SierraConditionalBranch` instance
     #[allow(dead_code)]
     pub fn new(
         statement: SierraStatement,
-        function: &'a Function<'a>,
+        function: String,
         // TODO: Create a Variable object
         parameters: Vec<String>,
-        edge_1_offset: u32,
+        edge_1_offset: Option<u32>,
         edge_2_offset: Option<u32>,
         fallthrough: bool,
     ) -> Self {
@@ -138,12 +137,113 @@ impl<'a> SierraConditionalBranch<'a> {
 pub struct SierraStatement {
     statement: cairo_lang_sierra::program::Statement,
     offset: u32,
+    is_conditional_branch: bool,
 }
 
 impl SierraStatement {
     /// Creates a new `SierraStatement` instance with an offset
     pub fn new(statement: cairo_lang_sierra::program::Statement, offset: u32) -> Self {
-        Self { statement, offset }
+        let is_conditional_branch = if let GenStatement::Invocation(invocation) = &statement {
+            invocation
+                .branches
+                .iter()
+                .any(|branch| matches!(branch.target, BranchTarget::Statement(_)))
+        } else {
+            false
+        };
+        Self {
+            statement,
+            offset,
+            is_conditional_branch,
+        }
+    }
+
+    /// Returns a reference to this statement as a conditional branch if it is one
+    fn as_conditional_branch(&self) -> Option<SierraConditionalBranch> {
+        if self.is_conditional_branch {
+            if let GenStatement::Invocation(invocation) = &self.statement {
+                // Statement
+                let statement = self.statement.clone();
+
+                // Function name
+                let libfunc_id_str = if let Some(debug_name) = &invocation.libfunc_id.debug_name {
+                    debug_name.to_string()
+                } else {
+                    invocation.libfunc_id.id.to_string()
+                };
+
+                // Parameters
+                let parameters: Vec<String> = invocation
+                    .args
+                    .iter()
+                    .map(|var_id| {
+                        if let Some(debug_name) = &var_id.debug_name {
+                            debug_name.clone().into()
+                        } else {
+                            format!("v{}", var_id.id)
+                        }
+                    })
+                    .collect();
+
+                // Fallthrough
+                let fallthrough = invocation
+                    .branches
+                    .iter()
+                    .any(|branch| matches!(branch.target, BranchTarget::Fallthrough));
+
+                // Initialize edge offsets
+                let mut edge_1_offset: Option<u32> = None;
+                let mut edge_2_offset: Option<u32> = None;
+
+                // Handle fallthrough case
+                if fallthrough {
+                    if let Some(statement_idx) = invocation.branches.iter().find_map(|branch| {
+                        if let BranchTarget::Statement(statement_idx) = &branch.target {
+                            Some(statement_idx.0 as u32)
+                        } else {
+                            None
+                        }
+                    }) {
+                        edge_1_offset = Some(statement_idx);
+                    }
+                } else {
+                    // Handle non-fallthrough case
+                    if let Some(first_branch) = invocation.branches.iter().next() {
+                        if let BranchTarget::Statement(statement_idx) = &first_branch.target {
+                            edge_1_offset = Some(statement_idx.0 as u32);
+                        }
+                    }
+
+                    // Set edge_2_offset if there are two branches pointing to a statement_idx
+                    if let Some(second_statement_idx) = invocation
+                        .branches
+                        .iter()
+                        .filter_map(|branch| {
+                            if let BranchTarget::Statement(statement_idx) = &branch.target {
+                                Some(statement_idx.0 as u32)
+                            } else {
+                                None
+                            }
+                        })
+                        .nth(1)
+                    {
+                        edge_2_offset = Some(second_statement_idx);
+                    }
+                }
+
+                // Create and return SierraConditionalBranch instance
+                return Some(SierraConditionalBranch::new(
+                    SierraStatement::new(statement, self.offset),
+                    libfunc_id_str,
+                    parameters,
+                    edge_1_offset,
+                    edge_2_offset,
+                    fallthrough,
+                ));
+            }
+        }
+
+        None
     }
 }
 
@@ -204,6 +304,80 @@ impl<'a> ControlFlowGraph {
         // Return the vectors containing the start and end offsets of basic blocks
         (basic_blocks_starts, basic_blocks_ends)
     }
+
+    /// Generates the CFG basic blocks
+    pub fn generate_basic_blocks(&mut self) {
+        // Retrieve basic blocks delimitations
+        let (basic_blocks_starts, basic_blocks_ends) = self.get_basic_blocks_delimitations();
+
+        // Initialize variables for tracking the current basic block
+        let mut new_basic_block = true;
+        let mut current_basic_block = BasicBlock::new(self.statements[0].clone());
+
+        // Iterate through each statement
+        for i in 0..self.statements.len() {
+            let statement = &self.statements[i];
+
+            // Check if the current statement marks the beginning of a new basic block
+            if basic_blocks_starts.contains(&statement.offset) {
+                // If it's the beginning of a new basic block, push the previous one to the list
+                if !new_basic_block {
+                    self.basic_blocks.push(current_basic_block.clone());
+                }
+                // Create a new basic block
+                current_basic_block = BasicBlock::new(statement.clone());
+                new_basic_block = false;
+            }
+
+            // Add the current statement to the current basic block
+            current_basic_block.statements.push(statement.clone());
+
+            // Check if the current statement marks the end of the current basic block
+            if basic_blocks_ends.contains(&statement.offset) {
+                new_basic_block = true;
+            }
+
+            // Handle conditional branches
+            if let Some(conditional_branch) = statement.as_conditional_branch() {
+                if let Some(edge_2_offset) = conditional_branch.edge_2_offset {
+                    // Conditional branch with 2 edges (JNZ)
+                    current_basic_block.edges.push(Edge {
+                        source: statement.offset,
+                        destination: conditional_branch.edge_1_offset.unwrap(),
+                        edge_type: EdgeType::ConditionalTrue,
+                    });
+                    current_basic_block.edges.push(Edge {
+                        source: statement.offset,
+                        destination: edge_2_offset + 1,
+                        edge_type: EdgeType::ConditionalFalse,
+                    });
+                } else if let Some(edge_1_offset) = conditional_branch.edge_1_offset {
+                    // Conditional jump with 1 edge (JUMP)
+                    current_basic_block.edges.push(Edge {
+                        source: statement.offset,
+                        destination: edge_1_offset,
+                        edge_type: EdgeType::Unconditional,
+                    });
+                }
+            }
+            // Check for fallthrough edges
+            else if i < (self.statements.len() - 1) {
+                if basic_blocks_starts.contains(&(self.statements[i + 1].offset))
+                    && !matches!(statement.statement, GenStatement::Return(_))
+                {
+                    // Fallthrough edge
+                    current_basic_block.edges.push(Edge {
+                        source: statement.offset,
+                        destination: statement.offset + 1,
+                        edge_type: EdgeType::Fallthrough,
+                    });
+                }
+            }
+        }
+
+        // Push the last basic block to the list
+        self.basic_blocks.push(current_basic_block);
+    }
 }
 
 /// A struct representing a function in a Sierra program
@@ -240,8 +414,11 @@ impl<'a> Function<'a> {
     /// Initializes the control flow graph (CFG) for the function
     pub fn create_cfg(&mut self) {
         // Create a new control flow graph instance
-        let cfg = ControlFlowGraph::new(self.statements.clone(), self.start_offset.unwrap());
-        cfg.get_basic_blocks_delimitations();
+        let mut cfg = ControlFlowGraph::new(self.statements.clone(), self.start_offset.unwrap());
+
+        // Generate the CFG basic blocks
+        cfg.generate_basic_blocks();
+
         // Assign the control flow graph to the function's CFG field
         self.cfg = Some(cfg);
     }
