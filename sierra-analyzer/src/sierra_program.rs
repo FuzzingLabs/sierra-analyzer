@@ -4,7 +4,7 @@ use cairo_lang_sierra::ProgramParser;
 use crate::decompiler::decompiler::Decompiler;
 
 /// A struct that represents a Sierra program
-#[allow(dead_code)]
+#[derive(Debug)]
 pub struct SierraProgram {
     /// The parsed Sierra program
     program: Program,

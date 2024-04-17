@@ -1,11 +1,13 @@
 use cairo_lang_sierra::program::GenFunction;
 use cairo_lang_sierra::program::GenericArg;
 use cairo_lang_sierra::program::LibfuncDeclaration;
-use cairo_lang_sierra::program::Statement;
 use cairo_lang_sierra::program::StatementIdx;
 use cairo_lang_sierra::program::TypeDeclaration;
 
+use crate::decompiler::cfg::BasicBlock;
+use crate::decompiler::cfg::EdgeType;
 use crate::decompiler::function::Function;
+use crate::decompiler::function::SierraStatement;
 use crate::sierra_program::SierraProgram;
 
 /// A struct that represents a decompiler for a Sierra program
@@ -14,6 +16,12 @@ pub struct Decompiler<'a> {
     sierra_program: &'a SierraProgram,
     /// Program functions
     pub functions: Vec<Function<'a>>,
+    /// Current indentation
+    indentation: u32,
+    /// Already printed basic blocks
+    printed_blocks: Vec<BasicBlock>,
+    /// The function where are currently working on
+    current_function: Option<Function<'a>>,
 }
 
 impl<'a> Decompiler<'a> {
@@ -21,6 +29,9 @@ impl<'a> Decompiler<'a> {
         Decompiler {
             sierra_program,
             functions: Vec::new(),
+            indentation: 1,
+            printed_blocks: Vec::new(),
+            current_function: None,
         }
     }
 
@@ -31,16 +42,14 @@ impl<'a> Decompiler<'a> {
 
         // Load statements into their corresponding functions
         self.set_functions_offsets();
-        let functions_prototypes = self.decompile_functions_prototypes();
+        self.decompile_functions_prototypes();
         self.add_statements_to_functions();
+
         // Decompile the functions
         let functions = self.decompile_functions();
 
         // Using format! macro to concatenate strings
-        format!(
-            "{}\n\n{}\n\n{}\n\n{}",
-            types, libfuncs, functions, functions_prototypes
-        )
+        format!("{}\n\n{}\n\n{}", types, libfuncs, functions)
     }
 
     /// Decompiles the type declarations
@@ -212,7 +221,7 @@ impl<'a> Decompiler<'a> {
             .collect();
 
         // Join the parameter strings into a single string, separated by commas
-        let param_str = format!("({})", param_strings.join(", "));
+        let param_str = format!("{}", param_strings.join(", "));
 
         // Create a list of strings representing the function return types
         let ret_types: Vec<String> = signature
@@ -260,38 +269,174 @@ impl<'a> Decompiler<'a> {
         }
     }
 
-    /// Adds the corresponding statements to each function in the Sierra program
+    /// Adds the corresponding statements and offsets to each function in the Sierra program
     fn add_statements_to_functions(&mut self) {
         for function in &mut self.functions {
-            let start_offset = function.start_offset;
-            let end_offset = function.end_offset;
-            let statements: Vec<Statement> = self
+            let start_offset = function.start_offset.unwrap();
+            let end_offset = function.end_offset.unwrap();
+
+            // Filter statements based on offset range and map them with their offsets
+            let statements_with_offsets: Vec<SierraStatement> = self
                 .sierra_program
                 .program()
                 .statements
                 .iter()
-                .take((end_offset.unwrap() - start_offset.unwrap()) as usize)
-                .cloned()
+                .enumerate()
+                .filter_map(|(idx, statement)| {
+                    let offset = idx as u32;
+                    if offset >= start_offset && offset <= end_offset {
+                        Some(SierraStatement::new(statement.clone(), offset))
+                    } else {
+                        None
+                    }
+                })
                 .collect();
-            function.set_statements(statements);
+
+            function.set_statements(statements_with_offsets);
         }
     }
 
-    /// Decompiles the functions
-    pub fn decompile_functions(&self) -> String {
-        self.functions
+    pub fn decompile_functions(&mut self) -> String {
+        // Clone functions to avoid borrowing conflicts
+        let mut functions_clone = self.functions.clone();
+
+        // Initialize CFG for each function
+        for function in &mut functions_clone {
+            function.create_cfg();
+        }
+
+        // Iterate through each function, mapping each one to its decompiled form
+        let function_decompilations: Vec<String> = functions_clone
             .iter()
             .map(|function| {
-                let prototype = function.prototype.as_ref().unwrap(); // Assuming prototype is always set
-                let body = function.statements_as_string();
-                let indented_body = body
-                    .lines()
-                    .map(|line| format!("    {}", line))
-                    .collect::<Vec<String>>()
-                    .join("\n");
-                format!("{} {{\n{}\n}}", prototype, indented_body)
+                // Set the current function
+                self.current_function = Some(function.clone());
+
+                // Extract function prototype
+                let prototype = function
+                    .prototype
+                    .as_ref()
+                    .expect("Function prototype not set");
+
+                let body = if let Some(cfg) = &function.cfg {
+                    cfg.basic_blocks
+                        .iter()
+                        .map(|block| {
+                            self.indentation = 1; // Reset indentation after processing each block
+                            let result = self.basic_block_recursive(block);
+                            result
+                        })
+                        .collect::<String>()
+                } else {
+                    String::new()
+                };
+
+                // Combine prototype and body into a formatted string
+                format!("{} {{\n{}}}", prototype, body)
             })
-            .collect::<Vec<String>>()
-            .join("\n\n")
+            .collect();
+
+        // Join all function decompilations into a single string
+        function_decompilations.join("\n\n")
+    }
+
+    /// Recursively decompile basic blocks
+    fn basic_block_recursive(&mut self, block: &BasicBlock) -> String {
+        let mut basic_blocks_str = String::new();
+
+        // Add the root basic block
+        basic_blocks_str += &self.basic_block_to_string(block);
+
+        // Add the edges
+        for edge in &block.edges {
+            // If branch
+            if edge.edge_type == EdgeType::ConditionalTrue {
+                self.indentation += 1;
+
+                if let Some(edge_basic_block) = self
+                    .current_function
+                    .as_ref()
+                    .unwrap()
+                    .cfg
+                    .clone()
+                    .unwrap()
+                    .basic_blocks
+                    .iter()
+                    .find(|b| edge.destination == b.start_offset)
+                {
+                    basic_blocks_str += &self.basic_block_recursive(edge_basic_block);
+                }
+            }
+            // Else branch
+            else if edge.edge_type == EdgeType::ConditionalFalse {
+                if let Some(edge_basic_block) = self
+                    .current_function
+                    .as_ref()
+                    .unwrap()
+                    .cfg
+                    .clone()
+                    .unwrap()
+                    .basic_blocks
+                    .iter()
+                    .find(|b| edge.destination == b.start_offset)
+                {
+                    if !self.printed_blocks.contains(edge_basic_block) {
+                        self.indentation -= 1;
+                        basic_blocks_str +=
+                            &("\t".repeat(self.indentation as usize) + "} else {\n");
+                        self.indentation += 1;
+                        basic_blocks_str += &self.basic_block_recursive(edge_basic_block);
+                    }
+                }
+                self.indentation -= 1;
+                if !basic_blocks_str.is_empty() {
+                    basic_blocks_str += &("\t".repeat(self.indentation as usize) + "}\n");
+                }
+            }
+        }
+
+        basic_blocks_str
+    }
+
+    /// Converts a Sierra BasicBlock object to a string
+    fn basic_block_to_string(&mut self, block: &BasicBlock) -> String {
+        // Check if the block has already been printed
+        if self.printed_blocks.contains(block) {
+            return String::new(); // Return an empty string if already printed
+        }
+
+        // Add the block to the list of printed blocks
+        self.printed_blocks.push(block.clone());
+
+        // Initialize the basic block string
+        let mut decompiled_basic_block = String::new();
+        let indentation = "\t".repeat(self.indentation as usize);
+
+        // Append each statement to the string block
+        for statement in &block.statements {
+            // If condition
+            if let Some(conditional_branch) = statement.as_conditional_branch() {
+                if block.edges.len() == 2 {
+                    let function_name = &conditional_branch.function;
+                    let function_arguments = conditional_branch.parameters.join(", ");
+                    decompiled_basic_block += &format!(
+                        "{}if ({}({}) == 0) {{\n",
+                        indentation, function_name, function_arguments
+                    );
+                }
+            }
+            // Unconditional jump
+            else if let Some(_unconditional_branch) = statement.as_conditional_branch() {
+                // Handle unconditional branch logic
+                todo!()
+            }
+            // Default case
+            else {
+                decompiled_basic_block +=
+                    &format!("{}{}\n", indentation, statement.formatted_statement());
+            }
+        }
+
+        decompiled_basic_block
     }
 }
