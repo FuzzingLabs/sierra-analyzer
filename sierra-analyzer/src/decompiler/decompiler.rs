@@ -142,9 +142,9 @@ impl<'a> Decompiler<'a> {
 
         // Construct the type declaration string
         if declared_type_info_str.is_empty() {
-            format!("type {} = {};", id, long_id)
+            format!("type {} = {}", id, long_id)
         } else {
-            format!("type {} = {} {};", id, long_id, declared_type_info_str)
+            format!("type {} = {} {}", id, long_id, declared_type_info_str)
         }
     }
 
@@ -169,7 +169,7 @@ impl<'a> Decompiler<'a> {
         // Construct a string representation of the long ID
         let long_id = format!("{}<{}>", generic_id, arguments);
 
-        format!("libfunc {} = {};", id, long_id)
+        format!("libfunc {} = {}", id, long_id)
     }
 
     /// Decompiles the functions prototypes
@@ -343,7 +343,7 @@ impl<'a> Decompiler<'a> {
                 };
 
                 // Combine prototype and body into a formatted string
-                let purple_comment = format!("// Function {}", index).purple();
+                let purple_comment = format!("// Function {}", index + 1).purple();
                 format!("{}\n{} {{\n{}}}", purple_comment, prototype, body)
             })
             .collect();
