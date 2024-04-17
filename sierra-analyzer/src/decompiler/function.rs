@@ -1,3 +1,5 @@
+use colored::*;
+
 use cairo_lang_sierra::program::BranchTarget;
 use cairo_lang_sierra::program::GenFunction;
 use cairo_lang_sierra::program::GenStatement;
@@ -5,6 +7,8 @@ use cairo_lang_sierra::program::StatementIdx;
 
 use crate::decompiler::cfg::ControlFlowGraph;
 use crate::decompiler::cfg::SierraConditionalBranch;
+use crate::extract_parameters;
+use crate::parse_libfunc_name;
 
 /// A struct representing a statement in a Sierra program with an offset
 #[derive(Debug, Clone)]
@@ -35,9 +39,53 @@ impl SierraStatement {
     }
 
     /// Formats the statement as a string
-    /// TODO : More readable statements representations
     pub fn formatted_statement(&self) -> String {
-        self.statement.to_string()
+        match &self.statement {
+            // Return statements
+            GenStatement::Return(vars) => {
+                let mut formatted = "return".red().to_string();
+                formatted.push_str(" (");
+                for (index, var) in vars.iter().enumerate() {
+                    if index > 0 {
+                        formatted.push_str(", ");
+                    }
+                    formatted.push_str(&format!("v{}", var.id));
+                }
+                formatted.push_str(")");
+                formatted
+            }
+            // Function calls & variables assignments
+            GenStatement::Invocation(invocation) => {
+                // Function name in blue
+                let libfunc_id_str = parse_libfunc_name!(invocation.libfunc_id).blue();
+
+                // Function parameters
+                let parameters = extract_parameters!(invocation.args);
+                let parameters_str = parameters.join(", ");
+
+                // Assigned variables
+                let assigned_variables = extract_parameters!(&invocation
+                    .branches
+                    .first()
+                    .map(|branch| &branch.results)
+                    .unwrap_or(&vec![]));
+                let assigned_variables_str = if !assigned_variables.is_empty() {
+                    assigned_variables.join(", ")
+                } else {
+                    String::new()
+                };
+
+                // Format the string based on the presence of assigned variables
+                if !assigned_variables.is_empty() {
+                    format!(
+                        "{} = {}({})",
+                        assigned_variables_str, libfunc_id_str, parameters_str
+                    )
+                } else {
+                    format!("{}({})", libfunc_id_str, parameters_str)
+                }
+            }
+        }
     }
 
     /// Returns a reference to this statement as a conditional branch if it is one
@@ -48,24 +96,10 @@ impl SierraStatement {
                 let statement = self.statement.clone();
 
                 // Function name
-                let libfunc_id_str = if let Some(debug_name) = &invocation.libfunc_id.debug_name {
-                    debug_name.to_string()
-                } else {
-                    invocation.libfunc_id.id.to_string()
-                };
+                let libfunc_id_str = parse_libfunc_name!(invocation.libfunc_id);
 
                 // Parameters
-                let parameters: Vec<String> = invocation
-                    .args
-                    .iter()
-                    .map(|var_id| {
-                        if let Some(debug_name) = &var_id.debug_name {
-                            debug_name.clone().into()
-                        } else {
-                            format!("v{}", var_id.id)
-                        }
-                    })
-                    .collect();
+                let parameters = extract_parameters!(invocation.args);
 
                 // Fallthrough
                 let fallthrough = invocation

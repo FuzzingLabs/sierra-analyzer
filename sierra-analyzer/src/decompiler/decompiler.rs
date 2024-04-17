@@ -1,3 +1,5 @@
+use colored::*;
+
 use cairo_lang_sierra::program::GenFunction;
 use cairo_lang_sierra::program::GenericArg;
 use cairo_lang_sierra::program::LibfuncDeclaration;
@@ -103,11 +105,16 @@ impl<'a> Decompiler<'a> {
     /// Decompiles a single type declaration
     fn decompile_type(&self, type_declaration: &TypeDeclaration) -> String {
         // Get the debug name of the type's ID
-        let id = type_declaration
-            .id
-            .debug_name
-            .as_ref()
-            .expect("Type ID missing debug name");
+        let id = format!(
+            "{}",
+            type_declaration
+                .id
+                .debug_name
+                .as_ref()
+                .unwrap_or(&"".into())
+        )
+        .yellow();
+
         // Get the long ID of the type, which consists of the generic ID and any generic arguments
         let long_id = &type_declaration.long_id;
         let generic_id = long_id.generic_id.to_string();
@@ -135,16 +142,23 @@ impl<'a> Decompiler<'a> {
 
         // Construct the type declaration string
         if declared_type_info_str.is_empty() {
-            format!("type {} = {};", id, long_id)
+            format!("type {} = {}", id, long_id)
         } else {
-            format!("type {} = {} {};", id, long_id, declared_type_info_str)
+            format!("type {} = {} {}", id, long_id, declared_type_info_str)
         }
     }
 
-    /// Decompiles a single libfunc declaration
     fn decompile_libfunc(&self, libfunc_declaration: &LibfuncDeclaration) -> String {
         // Get the debug name of the libfunc's ID
-        let id = libfunc_declaration.id.debug_name.as_ref().unwrap();
+        let id = format!(
+            "{}",
+            libfunc_declaration
+                .id
+                .debug_name
+                .as_ref()
+                .unwrap_or(&"".into())
+        )
+        .blue();
         // Get the long ID of the libfunc, which consists of the generic ID and any generic arguments
         let long_id = &libfunc_declaration.long_id;
         let generic_id = long_id.generic_id.to_string();
@@ -155,7 +169,7 @@ impl<'a> Decompiler<'a> {
         // Construct a string representation of the long ID
         let long_id = format!("{}<{}>", generic_id, arguments);
 
-        format!("libfunc {} = {};", id, long_id)
+        format!("libfunc {} = {}", id, long_id)
     }
 
     /// Decompiles the functions prototypes
@@ -181,12 +195,8 @@ impl<'a> Decompiler<'a> {
         &self,
         function_declaration: &GenFunction<StatementIdx>,
     ) -> String {
-        // Get the debug name of the function's ID
-        let id = function_declaration
-            .id
-            .debug_name
-            .as_ref()
-            .expect("Function ID missing debug name");
+        // Get the debug name of the function's ID and format it in bold
+        let id = format!("{}", function_declaration.id.debug_name.as_ref().unwrap()).bold();
 
         // Get the function signature, which consists of the parameter types and return types
         let signature = &function_declaration.signature;
@@ -208,15 +218,14 @@ impl<'a> Decompiler<'a> {
             .iter()
             .zip(function_declaration.params.iter())
             .map(|(param_type, param)| {
-                format!(
-                    "{}: {}",
-                    param
-                        .id
-                        .debug_name
-                        .as_ref()
-                        .unwrap_or(&format!("v{}", param.id.id).into()),
-                    param_type
-                )
+                let param_name_string = if let Some(debug_name) = &param.id.debug_name {
+                    debug_name.to_string()
+                } else {
+                    format!("v{}", param.id.id)
+                };
+                let param_name = param_name_string.purple(); // Color param_name in purple
+                let param_type_colored = param_type.yellow(); // Color param_type in yellow
+                format!("{}: {}", param_name, param_type_colored)
             })
             .collect();
 
@@ -228,11 +237,13 @@ impl<'a> Decompiler<'a> {
             .ret_types
             .iter()
             .map(|ret_type| {
-                ret_type
-                    .debug_name
-                    .as_ref()
-                    .unwrap_or(&format!("[{}]", ret_type.id).into())
-                    .to_string()
+                let ret_type_string = if let Some(debug_name) = &ret_type.debug_name {
+                    debug_name.to_string()
+                } else {
+                    format!("[{}]", ret_type.id)
+                };
+                let ret_type_colored = ret_type_string.purple(); // Color ret_type_string in purple
+                ret_type_colored.to_string()
             })
             .collect();
 
@@ -240,7 +251,7 @@ impl<'a> Decompiler<'a> {
         let ret_types_str = format!("{}", ret_types.join(", "));
 
         // Construct the function declaration string
-        format!("func {}({}) -> ({})", id, param_str, ret_types_str)
+        format!("func {} ({}) -> ({})", id, param_str, ret_types_str)
     }
 
     /// Sets the start and end offsets for each function in the Sierra program
@@ -305,10 +316,10 @@ impl<'a> Decompiler<'a> {
             function.create_cfg();
         }
 
-        // Iterate through each function, mapping each one to its decompiled form
         let function_decompilations: Vec<String> = functions_clone
             .iter()
-            .map(|function| {
+            .enumerate()
+            .map(|(index, function)| {
                 // Set the current function
                 self.current_function = Some(function.clone());
 
@@ -332,7 +343,8 @@ impl<'a> Decompiler<'a> {
                 };
 
                 // Combine prototype and body into a formatted string
-                format!("{} {{\n{}}}", prototype, body)
+                let purple_comment = format!("// Function {}", index + 1).purple();
+                format!("{}\n{} {{\n{}}}", purple_comment, prototype, body)
             })
             .collect();
 
