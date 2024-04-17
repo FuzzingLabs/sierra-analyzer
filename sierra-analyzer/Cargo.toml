@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 cairo-lang-sierra = { path = "./cairo/crates/cairo-lang-sierra", version = "~2.6.3" }
+colored = "2.1.0"

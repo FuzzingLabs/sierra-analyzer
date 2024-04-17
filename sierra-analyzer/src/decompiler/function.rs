@@ -1,3 +1,5 @@
+use colored::*;
+
 use cairo_lang_sierra::program::BranchTarget;
 use cairo_lang_sierra::program::GenFunction;
 use cairo_lang_sierra::program::GenStatement;
@@ -5,38 +7,8 @@ use cairo_lang_sierra::program::StatementIdx;
 
 use crate::decompiler::cfg::ControlFlowGraph;
 use crate::decompiler::cfg::SierraConditionalBranch;
-
-/// Macro to parse the debug name from a libfunc_id,
-/// using the debug_name if present or falling back to the id field
-macro_rules! parse_libfunc_name {
-    ($libfunc_id:expr) => {
-        if let Some(debug_name) = &$libfunc_id.debug_name {
-            debug_name.to_string()
-        } else {
-            $libfunc_id.id.to_string()
-        }
-    };
-}
-
-/// Macro to extract parameters from the args field of a GenInvocation object.
-/// It converts each parameter into a String, using the debug_name if available,
-/// otherwise using the id field.
-macro_rules! extract_parameters {
-    ($args:expr) => {
-        $args
-            .iter()
-            .map(|var_id| {
-                if let Some(debug_name) = &var_id.debug_name {
-                    // If debug_name exists, use it as parameter
-                    debug_name.clone().into()
-                } else {
-                    // If debug_name is None, use id field as parameter
-                    format!("v{}", var_id.id)
-                }
-            })
-            .collect::<Vec<String>>()
-    };
-}
+use crate::extract_parameters;
+use crate::parse_libfunc_name;
 
 /// A struct representing a statement in a Sierra program with an offset
 #[derive(Debug, Clone)]
@@ -71,7 +43,8 @@ impl SierraStatement {
         match &self.statement {
             // Return statements
             GenStatement::Return(vars) => {
-                let mut formatted = String::from("return (");
+                let mut formatted = "return".red().to_string();
+                formatted.push_str(" (");
                 for (index, var) in vars.iter().enumerate() {
                     if index > 0 {
                         formatted.push_str(", ");
@@ -81,10 +54,10 @@ impl SierraStatement {
                 formatted.push_str(")");
                 formatted
             }
-            // Function calls & variables assignations
+            // Function calls & variables assignments
             GenStatement::Invocation(invocation) => {
-                // Function name
-                let libfunc_id_str = parse_libfunc_name!(invocation.libfunc_id);
+                // Function name in blue
+                let libfunc_id_str = parse_libfunc_name!(invocation.libfunc_id).blue();
 
                 // Function parameters
                 let parameters = extract_parameters!(invocation.args);
