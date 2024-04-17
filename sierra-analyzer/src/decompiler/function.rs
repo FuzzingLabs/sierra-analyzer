@@ -7,17 +7,17 @@ use crate::decompiler::cfg::ControlFlowGraph;
 use crate::decompiler::cfg::SierraConditionalBranch;
 
 /// A struct representing a statement in a Sierra program with an offset
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct SierraStatement {
     pub statement: cairo_lang_sierra::program::Statement,
     pub offset: u32,
-    is_conditional_branch: bool,
+    pub is_conditional_branch: bool,
 }
 
 impl SierraStatement {
     /// Creates a new `SierraStatement` instance with an offset
     pub fn new(statement: cairo_lang_sierra::program::Statement, offset: u32) -> Self {
+        // Check if it is a conditional branch
         let is_conditional_branch = if let GenStatement::Invocation(invocation) = &statement {
             invocation
                 .branches
@@ -26,11 +26,18 @@ impl SierraStatement {
         } else {
             false
         };
+
         Self {
             statement,
             offset,
             is_conditional_branch,
         }
+    }
+
+    /// Formats the statement as a string
+    /// TODO : More readable statements representations
+    pub fn formatted_statement(&self) -> String {
+        self.statement.to_string()
     }
 
     /// Returns a reference to this statement as a conditional branch if it is one
@@ -124,7 +131,7 @@ impl SierraStatement {
 
 /// A struct representing a function in a Sierra program
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Function<'a> {
     /// The function's `GenFunction` representation
     function: &'a GenFunction<StatementIdx>,
@@ -133,9 +140,9 @@ pub struct Function<'a> {
     // Function end offset
     pub end_offset: Option<u32>,
     /// A vector of `SierraStatement` instances representing the function's body with offsets
-    statements: Vec<SierraStatement>,
+    pub statements: Vec<SierraStatement>,
     /// A `ControlFlowGraph` representing the function's CFG
-    cfg: Option<ControlFlowGraph>,
+    pub cfg: Option<ControlFlowGraph>,
     /// The prototype of the function
     pub prototype: Option<String>,
 }
@@ -165,12 +172,6 @@ impl<'a> Function<'a> {
         self.cfg = Some(cfg);
     }
 
-    /// Returns a reference to the statements in the function's body
-    #[allow(dead_code)]
-    pub fn statements(&self) -> &Vec<SierraStatement> {
-        &self.statements
-    }
-
     /// Sets the start offset of the function
     pub fn set_start_offset(&mut self, start_offset: u32) {
         self.start_offset = Some(start_offset);
@@ -184,15 +185,6 @@ impl<'a> Function<'a> {
     /// Sets the statements for the function's body
     pub fn set_statements(&mut self, statements: Vec<SierraStatement>) {
         self.statements = statements;
-    }
-
-    /// Returns the statements in the function's body as a string
-    pub fn statements_as_string(&self) -> String {
-        self.statements
-            .iter()
-            .map(|stmt| stmt.statement.to_string())
-            .collect::<Vec<String>>()
-            .join("\n")
     }
 
     /// Sets the prototype of the function

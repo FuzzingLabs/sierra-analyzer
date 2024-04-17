@@ -1,3 +1,4 @@
+use std::cmp::PartialEq;
 use std::collections::HashSet;
 
 use cairo_lang_sierra::program::BranchTarget;
@@ -14,13 +15,25 @@ pub enum EdgeType {
     Fallthrough,
 }
 
+impl PartialEq for EdgeType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (EdgeType::Unconditional, EdgeType::Unconditional)
+            | (EdgeType::ConditionalTrue, EdgeType::ConditionalTrue)
+            | (EdgeType::ConditionalFalse, EdgeType::ConditionalFalse)
+            | (EdgeType::Fallthrough, EdgeType::Fallthrough) => true,
+            _ => false,
+        }
+    }
+}
+
 /// Struct representing a control flow graph (CFG) edge
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Edge {
     source: u32,
-    destination: u32,
-    edge_type: EdgeType,
+    pub destination: u32,
+    pub edge_type: EdgeType,
 }
 
 impl Edge {
@@ -41,14 +54,14 @@ impl Edge {
 pub struct BasicBlock {
     /// Basic block delimitations
     start_statement: SierraStatement,
-    start_offset: u32,
+    pub start_offset: u32,
     end_offset: Option<u32>,
     /// Name of the basic block
     name: String,
     /// Instructions (statements) in the basic block
-    statements: Vec<SierraStatement>,
+    pub statements: Vec<SierraStatement>,
     /// Edges of the basic block
-    edges: Vec<Edge>,
+    pub edges: Vec<Edge>,
 }
 
 #[allow(dead_code)]
@@ -88,6 +101,13 @@ impl BasicBlock {
     }
 }
 
+impl PartialEq for BasicBlock {
+    fn eq(&self, other: &Self) -> bool {
+        // Compare based on the start_offset
+        self.start_offset == other.start_offset
+    }
+}
+
 /// Struct representing a Sierra conditional branch
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -95,19 +115,18 @@ pub struct SierraConditionalBranch {
     // Inherit SierraStatement's fields
     statement: SierraStatement,
     // Function name
-    function: String,
+    pub function: String,
     // TODO: Create a Variable object
-    parameters: Vec<String>,
+    pub parameters: Vec<String>,
     // Edges offsets
-    edge_1_offset: Option<u32>,
-    edge_2_offset: Option<u32>,
+    pub edge_1_offset: Option<u32>,
+    pub edge_2_offset: Option<u32>,
     // Fallthrough conditional branch
     fallthrough: bool,
 }
 
 impl SierraConditionalBranch {
     /// Creates a new `SierraConditionalBranch` instance
-    #[allow(dead_code)]
     pub fn new(
         statement: SierraStatement,
         function: String,
@@ -135,11 +154,11 @@ impl SierraConditionalBranch {
 
 /// A struct representing a control flow graph (CFG) for a function
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ControlFlowGraph {
     statements: Vec<SierraStatement>,
     start_offset: u32,
-    basic_blocks: Vec<BasicBlock>,
+    pub basic_blocks: Vec<BasicBlock>,
 }
 
 impl<'a> ControlFlowGraph {
@@ -155,7 +174,7 @@ impl<'a> ControlFlowGraph {
     /// Gets the start and end offsets of basic blocks within the function's control flow graph
     pub fn get_basic_blocks_delimitations(&self) -> (Vec<u32>, Vec<u32>) {
         // Initialize vectors to store the start and end offsets of basic blocks
-        let mut basic_blocks_starts = vec![self.start_offset];
+        let mut basic_blocks_starts = vec![];
         let mut basic_blocks_ends = vec![];
 
         // Iterate over each statement in the function
@@ -178,6 +197,8 @@ impl<'a> ControlFlowGraph {
                                 basic_blocks_starts.push(statement.offset + 1);
                                 // Add the offset of the targeted statement as the start of a new basic block
                                 basic_blocks_starts.push(statement_idx.0.try_into().unwrap());
+                                // Add the offset of the targeted statement as the end of the current basic block
+                                basic_blocks_ends.push(statement.offset);
                             }
                             // Ignore other types of branch targets
                             _ => {}
@@ -207,7 +228,7 @@ impl<'a> ControlFlowGraph {
             // Check if the current statement marks the beginning of a new basic block
             if basic_blocks_starts.contains(&statement.offset) {
                 // If it's the beginning of a new basic block, push the previous one to the list
-                if !new_basic_block {
+                if new_basic_block {
                     self.basic_blocks.push(current_basic_block.clone());
                 }
                 // Create a new basic block
