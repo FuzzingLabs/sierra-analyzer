@@ -1,6 +1,4 @@
-mod decompiler;
-mod sierra_program;
-
+use sierra_analyzer_lib::sierra_program;
 use std::env;
 use std::fs::File;
 use std::io::Read;
