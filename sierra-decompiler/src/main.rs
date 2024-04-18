@@ -1,24 +1,30 @@
 use serde_json;
-use std::env;
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
+use std::path::PathBuf;
 
 use cairo_lang_starknet_classes::contract_class::ContractClass;
 
+use clap::Parser;
 use sierra_analyzer_lib::sierra_program;
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
+/// Decompile a Sierra program
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    /// Sierra program file
+    sierra_file: PathBuf,
 
-    if args.len() < 2 {
-        println!("Usage: {} <sierra_file>", args[0]);
-        return;
-    }
+    /// Do not use colored output
+    #[clap(short, long, default_value = "false")]
+    no_color: bool,
+}
+
+fn main() {
+    let args = Args::parse();
 
     // Read input file
-    let path = Path::new(&args[1]);
-    let mut file = File::open(&path).expect("Failed to open file");
+    let mut file = File::open(&args.sierra_file).expect("Failed to open file");
     let mut content = String::new();
     file.read_to_string(&mut content)
         .expect("Failed to read file");
@@ -34,7 +40,7 @@ fn main() {
 
         // Decompile
         let mut decompiler = program.decompiler();
-        println!("{}", decompiler.decompile(true));
+        println!("{}", decompiler.decompile(!args.no_color));
     }
     // Decompile a Sierra program
     else {
@@ -42,6 +48,6 @@ fn main() {
 
         // Decompile
         let mut decompiler = program.decompiler();
-        println!("{}", decompiler.decompile(true));
+        println!("{}", decompiler.decompile(!args.no_color));
     }
 }
