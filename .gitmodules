@@ -1,3 +1,6 @@
 [submodule "/cairo"]
 	path = /cairo
 	url = https://github.com/starkware-libs/cairo.git
+[submodule "cairo"]
+	path = cairo
+	url = https://github.com/starkware-libs/cairo.git
