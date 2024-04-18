@@ -34,14 +34,14 @@ fn main() {
 
         // Decompile
         let mut decompiler = program.decompiler();
-        println!("{}", decompiler.decompile());
-    } 
+        println!("{}", decompiler.decompile(true));
+    }
     // Decompile a Sierra program
     else {
         let program = sierra_program::SierraProgram::new(content);
 
         // Decompile
         let mut decompiler = program.decompiler();
-        println!("{}", decompiler.decompile());
+        println!("{}", decompiler.decompile(true));
     }
 }

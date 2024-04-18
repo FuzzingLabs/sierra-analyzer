@@ -38,7 +38,10 @@ impl<'a> Decompiler<'a> {
     }
 
     /// Decompiles the Sierra Program
-    pub fn decompile(&mut self) -> String {
+    pub fn decompile(&mut self, use_color: bool) -> String {
+        // Disable/enable color output
+        colored::control::set_override(use_color);
+
         let types = self.decompile_types();
         let libfuncs = self.decompile_libfuncs();
 
