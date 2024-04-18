@@ -6,167 +6,25 @@ use cairo_lang_sierra::program::GenStatement;
 
 use crate::decompiler::function::SierraStatement;
 
-/// Enum representing different types of CFG edges
-#[derive(Debug, Clone)]
-pub enum EdgeType {
-    Unconditional,
-    ConditionalTrue,
-    ConditionalFalse,
-    Fallthrough,
-}
-
-impl PartialEq for EdgeType {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (EdgeType::Unconditional, EdgeType::Unconditional)
-            | (EdgeType::ConditionalTrue, EdgeType::ConditionalTrue)
-            | (EdgeType::ConditionalFalse, EdgeType::ConditionalFalse)
-            | (EdgeType::Fallthrough, EdgeType::Fallthrough) => true,
-            _ => false,
-        }
-    }
-}
-
-/// Struct representing a control flow graph (CFG) edge
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct Edge {
-    source: u32,
-    pub destination: u32,
-    pub edge_type: EdgeType,
-}
-
-impl Edge {
-    /// Creates a new `Edge` instance
-    #[allow(dead_code)]
-    pub fn new(source: u32, destination: u32, edge_type: EdgeType) -> Self {
-        Self {
-            source,
-            destination,
-            edge_type,
-        }
-    }
-}
-
-/// Struct representing a Sierra Control-Flow Graph basic block
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct BasicBlock {
-    /// Basic block delimitations
-    start_statement: SierraStatement,
-    pub start_offset: u32,
-    end_offset: Option<u32>,
-    /// Name of the basic block
-    name: String,
-    /// Instructions (statements) in the basic block
-    pub statements: Vec<SierraStatement>,
-    /// Edges of the basic block
-    pub edges: Vec<Edge>,
-}
-
-#[allow(dead_code)]
-impl BasicBlock {
-    /// Creates a new `BasicBlock` instance
-    pub fn new(start_statement: SierraStatement) -> Self {
-        let start_offset = start_statement.offset;
-        let name = format!("bb_{}", start_offset);
-        BasicBlock {
-            start_statement,
-            start_offset,
-            end_offset: None,
-            name,
-            statements: Vec::new(),
-            edges: Vec::new(),
-        }
-    }
-
-    /// Returns the name of the basic block
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    /// Adds a statement to the basic block
-    pub fn add_statement(&mut self, statement: SierraStatement) {
-        self.statements.push(statement);
-    }
-
-    /// Adds an edge to the basic block
-    pub fn add_edge(&mut self, edge: Edge) {
-        self.edges.push(edge);
-    }
-
-    /// Sets the end offset of the basic block
-    pub fn set_end_offset(&mut self, end_offset: u32) {
-        self.end_offset = Some(end_offset);
-    }
-}
-
-impl PartialEq for BasicBlock {
-    fn eq(&self, other: &Self) -> bool {
-        // Compare based on the start_offset
-        self.start_offset == other.start_offset
-    }
-}
-
-/// Struct representing a Sierra conditional branch
-#[allow(dead_code)]
-#[derive(Debug)]
-pub struct SierraConditionalBranch {
-    // Inherit SierraStatement's fields
-    statement: SierraStatement,
-    // Function name
-    pub function: String,
-    // TODO: Create a Variable object
-    pub parameters: Vec<String>,
-    // Edges offsets
-    pub edge_1_offset: Option<u32>,
-    pub edge_2_offset: Option<u32>,
-    // Fallthrough conditional branch
-    fallthrough: bool,
-}
-
-impl SierraConditionalBranch {
-    /// Creates a new `SierraConditionalBranch` instance
-    pub fn new(
-        statement: SierraStatement,
-        function: String,
-        // TODO: Create a Variable object
-        parameters: Vec<String>,
-        edge_1_offset: Option<u32>,
-        edge_2_offset: Option<u32>,
-        fallthrough: bool,
-    ) -> Self {
-        let mut edge_2_offset = edge_2_offset;
-        if fallthrough && edge_2_offset.is_none() {
-            edge_2_offset = Some(statement.offset);
-        }
-
-        SierraConditionalBranch {
-            statement,
-            function,
-            parameters,
-            edge_1_offset,
-            edge_2_offset,
-            fallthrough,
-        }
-    }
-}
-
 /// A struct representing a control flow graph (CFG) for a function
-#[allow(dead_code)]
+///
+/// - Breaks down the function into basic blocks
+/// - Captures control flow between blocks with edges
+/// - Each block represents a sequence of statements executed sequentially
+/// - Edges denote control flow transfers (conditional branches, jumps, fallthroughs)
 #[derive(Debug, Clone)]
 pub struct ControlFlowGraph {
+    /// List of statements in the function
     statements: Vec<SierraStatement>,
-    start_offset: u32,
+    /// List of basic blocks in the CFG
     pub basic_blocks: Vec<BasicBlock>,
 }
 
 impl<'a> ControlFlowGraph {
     /// Creates a new `ControlFlowGraph` instance
-    pub fn new(statements: Vec<SierraStatement>, start_offset: u32) -> Self {
+    pub fn new(statements: Vec<SierraStatement>) -> Self {
         Self {
             statements,
-            start_offset,
             basic_blocks: Vec::new(),
         }
     }
@@ -287,6 +145,7 @@ impl<'a> ControlFlowGraph {
     }
 
     /// Returns the children blocks of a basic block
+    /// Unused for now but will be useful to construct the graphs
     #[allow(dead_code)]
     fn children(&self, block: &BasicBlock) -> Vec<&BasicBlock> {
         let mut children = Vec::new();
@@ -303,6 +162,7 @@ impl<'a> ControlFlowGraph {
     }
 
     /// Returns the parent blocks of a basic block
+    /// Unused for now but will be useful to construct the graphs
     #[allow(dead_code)]
     fn parents(&self, block: &BasicBlock) -> Vec<&BasicBlock> {
         let mut parents = Vec::new();
@@ -320,5 +180,151 @@ impl<'a> ControlFlowGraph {
             }
         }
         parents
+    }
+}
+
+/// Enum representing different types of CFG edges
+#[derive(Debug, Clone)]
+pub enum EdgeType {
+    Unconditional,
+    ConditionalTrue,
+    ConditionalFalse,
+    Fallthrough,
+}
+
+impl PartialEq for EdgeType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (EdgeType::Unconditional, EdgeType::Unconditional)
+            | (EdgeType::ConditionalTrue, EdgeType::ConditionalTrue)
+            | (EdgeType::ConditionalFalse, EdgeType::ConditionalFalse)
+            | (EdgeType::Fallthrough, EdgeType::Fallthrough) => true,
+            _ => false,
+        }
+    }
+}
+
+/// Struct representing a control flow graph (CFG) edge
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct Edge {
+    source: u32,
+    pub destination: u32,
+    pub edge_type: EdgeType,
+}
+
+impl Edge {
+    /// Creates a new `Edge` instance
+    #[allow(dead_code)]
+    pub fn new(source: u32, destination: u32, edge_type: EdgeType) -> Self {
+        Self {
+            source,
+            destination,
+            edge_type,
+        }
+    }
+}
+
+/// Struct representing a Sierra Control-Flow Graph basic block
+#[derive(Debug, Clone)]
+pub struct BasicBlock {
+    pub start_offset: u32,
+    end_offset: Option<u32>,
+    /// Name of the basic block
+    name: String,
+    /// Instructions (statements) in the basic block
+    pub statements: Vec<SierraStatement>,
+    /// Edges of the basic block
+    pub edges: Vec<Edge>,
+}
+
+impl BasicBlock {
+    /// Creates a new `BasicBlock` instance
+    pub fn new(start_statement: SierraStatement) -> Self {
+        let start_offset = start_statement.offset;
+        // Name the basicblock using the start offset
+        let name = format!("bb_{}", start_offset);
+
+        BasicBlock {
+            start_offset,
+            end_offset: None,
+            name,
+            statements: Vec::new(),
+            edges: Vec::new(),
+        }
+    }
+
+    /// Returns the name of the basic block
+    #[inline]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Adds a statement to the basic block
+    #[inline]
+    pub fn add_statement(&mut self, statement: SierraStatement) {
+        self.statements.push(statement);
+    }
+
+    /// Adds an edge to the basic block
+    #[inline]
+    pub fn add_edge(&mut self, edge: Edge) {
+        self.edges.push(edge);
+    }
+
+    /// Sets the end offset of the basic block
+    #[inline]
+    pub fn set_end_offset(&mut self, end_offset: u32) {
+        self.end_offset = Some(end_offset);
+    }
+}
+
+impl PartialEq for BasicBlock {
+    fn eq(&self, other: &Self) -> bool {
+        // Compare based on the start_offset
+        self.start_offset == other.start_offset
+    }
+}
+
+/// Struct representing a Sierra conditional branch
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct SierraConditionalBranch {
+    // Inherit SierraStatement's fields
+    statement: SierraStatement,
+    // Function name
+    pub function: String,
+    // TODO: Create a Variable object
+    pub parameters: Vec<String>,
+    // Edges offsets
+    pub edge_1_offset: Option<u32>,
+    pub edge_2_offset: Option<u32>,
+    // Fallthrough conditional branch
+    fallthrough: bool,
+}
+
+impl SierraConditionalBranch {
+    /// Creates a new `SierraConditionalBranch` instance
+    pub fn new(
+        statement: SierraStatement,
+        function: String,
+        parameters: Vec<String>,
+        edge_1_offset: Option<u32>,
+        edge_2_offset: Option<u32>,
+        fallthrough: bool,
+    ) -> Self {
+        let mut edge_2_offset = edge_2_offset;
+        if fallthrough && edge_2_offset.is_none() {
+            edge_2_offset = Some(statement.offset);
+        }
+
+        SierraConditionalBranch {
+            statement,
+            function,
+            parameters,
+            edge_1_offset,
+            edge_2_offset,
+            fallthrough,
+        }
     }
 }

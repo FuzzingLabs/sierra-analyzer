@@ -20,9 +20,9 @@ pub struct Decompiler<'a> {
     pub functions: Vec<Function<'a>>,
     /// Current indentation
     indentation: u32,
-    /// Already printed basic blocks
+    /// Already printed basic blocks (to avoid printing two times the same BB)
     printed_blocks: Vec<BasicBlock>,
-    /// The function where are currently working on
+    /// The function we are currently working on
     current_function: Option<Function<'a>>,
 }
 
@@ -37,11 +37,13 @@ impl<'a> Decompiler<'a> {
         }
     }
 
-    /// Decompiles the Sierra Program
+    /// Decompiles the Sierra Program and return the string output
+    /// Output can be colored or not
     pub fn decompile(&mut self, use_color: bool) -> String {
         // Disable/enable color output
         colored::control::set_override(use_color);
 
+        // Decompile types and libfuncs
         let types = self.decompile_types();
         let libfuncs = self.decompile_libfuncs();
 
@@ -53,7 +55,7 @@ impl<'a> Decompiler<'a> {
         // Decompile the functions
         let functions = self.decompile_functions();
 
-        // Using format! macro to concatenate strings
+        // Format the output string
         format!("{}\n\n{}\n\n{}", types, libfuncs, functions)
     }
 
@@ -84,6 +86,7 @@ impl<'a> Decompiler<'a> {
         generic_args
             .iter()
             .map(|arg| match arg {
+                // User defined types
                 GenericArg::UserType(t) => {
                     // Use debug name
                     if let Some(name) = &t.debug_name {
@@ -94,6 +97,7 @@ impl<'a> Decompiler<'a> {
                         format!("ut@[{}]", t.id)
                     }
                 }
+                // Builtin type
                 GenericArg::Type(t) => t
                     .debug_name
                     .as_ref()
@@ -151,6 +155,7 @@ impl<'a> Decompiler<'a> {
         }
     }
 
+    /// Decompile an single libfunc
     fn decompile_libfunc(&self, libfunc_declaration: &LibfuncDeclaration) -> String {
         // Get the debug name of the libfunc's ID
         let id = format!(
@@ -258,6 +263,7 @@ impl<'a> Decompiler<'a> {
     }
 
     /// Sets the start and end offsets for each function in the Sierra program
+    /// They are then used to assign the statements their functions
     fn set_functions_offsets(&mut self) {
         let num_functions = self.sierra_program.program().funcs.len();
 
@@ -283,7 +289,7 @@ impl<'a> Decompiler<'a> {
         }
     }
 
-    /// Adds the corresponding statements and offsets to each function in the Sierra program
+    /// Adds the corresponding statements each function using their offsets
     fn add_statements_to_functions(&mut self) {
         for function in &mut self.functions {
             let start_offset = function.start_offset.unwrap();
@@ -298,9 +304,12 @@ impl<'a> Decompiler<'a> {
                 .enumerate()
                 .filter_map(|(idx, statement)| {
                     let offset = idx as u32;
+                    // Function statements based on their offsets
                     if offset >= start_offset && offset <= end_offset {
                         Some(SierraStatement::new(statement.clone(), offset))
-                    } else {
+                    }
+                    // Other statements
+                    else {
                         None
                     }
                 })
@@ -310,11 +319,12 @@ impl<'a> Decompiler<'a> {
         }
     }
 
+    /// Decompiles all the functions
     pub fn decompile_functions(&mut self) -> String {
         // Clone functions to avoid borrowing conflicts
         let mut functions_clone = self.functions.clone();
 
-        // Initialize CFG for each function
+        // Initialize a CFG for each function
         for function in &mut functions_clone {
             function.create_cfg();
         }
@@ -366,6 +376,7 @@ impl<'a> Decompiler<'a> {
         for edge in &block.edges {
             // If branch
             if edge.edge_type == EdgeType::ConditionalTrue {
+                // Indentate the if block
                 self.indentation += 1;
 
                 if let Some(edge_basic_block) = self
@@ -396,14 +407,22 @@ impl<'a> Decompiler<'a> {
                     .find(|b| edge.destination == b.start_offset)
                 {
                     if !self.printed_blocks.contains(edge_basic_block) {
+                        // end of if block
                         self.indentation -= 1;
+
                         basic_blocks_str +=
                             &("\t".repeat(self.indentation as usize) + "} else {\n");
+
+                        // Indentate the else block
                         self.indentation += 1;
+
                         basic_blocks_str += &self.basic_block_recursive(edge_basic_block);
                     }
                 }
+
+                // End of else block
                 self.indentation -= 1;
+
                 if !basic_blocks_str.is_empty() {
                     basic_blocks_str += &("\t".repeat(self.indentation as usize) + "}\n");
                 }

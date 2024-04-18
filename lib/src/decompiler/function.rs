@@ -10,16 +10,19 @@ use crate::decompiler::cfg::SierraConditionalBranch;
 use crate::extract_parameters;
 use crate::parse_libfunc_name;
 
-/// A struct representing a statement in a Sierra program with an offset
+/// A struct representing a statement
 #[derive(Debug, Clone)]
 pub struct SierraStatement {
+    /// Statement extracted from the parsed program
     pub statement: cairo_lang_sierra::program::Statement,
+    /// We store the statement offset in the struct because it not present in cairo_lang_sierra::program::Statement
     pub offset: u32,
+    /// A statement is considered a "conditional branch" if it has branching behavior
     pub is_conditional_branch: bool,
 }
 
 impl SierraStatement {
-    /// Creates a new `SierraStatement` instance with an offset
+    /// Creates a new `SierraStatement` instance
     pub fn new(statement: cairo_lang_sierra::program::Statement, offset: u32) -> Self {
         // Check if it is a conditional branch
         let is_conditional_branch = if let GenStatement::Invocation(invocation) = &statement {
@@ -39,6 +42,7 @@ impl SierraStatement {
     }
 
     /// Formats the statement as a string
+    /// We try to format them in a way that is as similar as possible to the Cairo syntax
     pub fn formatted_statement(&self) -> String {
         match &self.statement {
             // Return statements
@@ -164,7 +168,6 @@ impl SierraStatement {
 }
 
 /// A struct representing a function in a Sierra program
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Function<'a> {
     /// The function's `GenFunction` representation
@@ -197,7 +200,7 @@ impl<'a> Function<'a> {
     /// Initializes the control flow graph (CFG) for the function
     pub fn create_cfg(&mut self) {
         // Create a new control flow graph instance
-        let mut cfg = ControlFlowGraph::new(self.statements.clone(), self.start_offset.unwrap());
+        let mut cfg = ControlFlowGraph::new(self.statements.clone());
 
         // Generate the CFG basic blocks
         cfg.generate_basic_blocks();
@@ -207,21 +210,25 @@ impl<'a> Function<'a> {
     }
 
     /// Sets the start offset of the function
+    #[inline]
     pub fn set_start_offset(&mut self, start_offset: u32) {
         self.start_offset = Some(start_offset);
     }
 
     /// Sets the end offset of the function
+    #[inline]
     pub fn set_end_offset(&mut self, end_offset: u32) {
         self.end_offset = Some(end_offset);
     }
 
     /// Sets the statements for the function's body
+    #[inline]
     pub fn set_statements(&mut self, statements: Vec<SierraStatement>) {
         self.statements = statements;
     }
 
     /// Sets the prototype of the function
+    #[inline]
     pub fn set_prototype(&mut self, prototype: String) {
         self.prototype = Some(prototype);
     }
