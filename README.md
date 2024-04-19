@@ -22,7 +22,7 @@ cargo run --bin sierra-decompiler <sierra file>
 
 <p align="center">
 	<b> Decompiler output  </b></br>
-	<img src="/doc/images/images/decompiler-output.png"/></br>
+	<img height="400px" src="/doc/images/decompiler-output.png"/></br>
 </p>
 
 For a colourless output : 
