@@ -184,24 +184,12 @@ impl<'a> ControlFlowGraph {
 }
 
 /// Enum representing different types of CFG edges
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum EdgeType {
     Unconditional,
     ConditionalTrue,
     ConditionalFalse,
     Fallthrough,
-}
-
-impl PartialEq for EdgeType {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (EdgeType::Unconditional, EdgeType::Unconditional)
-            | (EdgeType::ConditionalTrue, EdgeType::ConditionalTrue)
-            | (EdgeType::ConditionalFalse, EdgeType::ConditionalFalse)
-            | (EdgeType::Fallthrough, EdgeType::Fallthrough) => true,
-            _ => false,
-        }
-    }
 }
 
 /// Struct representing a control flow graph (CFG) edge
