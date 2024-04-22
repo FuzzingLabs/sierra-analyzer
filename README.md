@@ -6,7 +6,6 @@ Sierra analyzer is a security toolkit for analyzing Sierra files.
 
 ```
 .
-├── cairo              	         # Cairo repository
 ├── doc               		 # Documentation files
 ├── examples                     # Sierra & Contrat class samples files
 ├── lib               	         # sierra-analyzer library

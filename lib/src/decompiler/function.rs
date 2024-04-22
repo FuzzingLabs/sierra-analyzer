@@ -169,6 +169,7 @@ impl SierraStatement {
 
 /// A struct representing a function in a Sierra program
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Function<'a> {
     /// The function's `GenFunction` representation
     function: &'a GenFunction<StatementIdx>,

@@ -130,10 +130,15 @@ impl<'a> Decompiler<'a> {
         let arguments = self.parse_arguments(&long_id.generic_args);
 
         // Construct a string representation of the long ID
-        let long_id = format!("{}<{}>", generic_id, arguments);
+        let long_id_repr = if !arguments.is_empty() {
+            format!("{}<{}>", generic_id, arguments)
+        } else {
+            generic_id.clone()
+        };
 
         // Retrieve the declared type information for the type, if it exists
-        let declared_type_info_str = type_declaration.declared_type_info.as_ref().map_or_else(
+        // We don't use it in the decompiler output because it might not be readable enough
+        let _declared_type_info_str = type_declaration.declared_type_info.as_ref().map_or_else(
             String::new,
             |declared_type_info| {
                 let storable = declared_type_info.storable.to_string();
@@ -147,12 +152,14 @@ impl<'a> Decompiler<'a> {
             },
         );
 
-        // Construct the type declaration string
-        if declared_type_info_str.is_empty() {
-            format!("type {} = {}", id, long_id)
+        // Conditionally append long_id_repr in parentheses if it is different from id
+        let type_definition = if *long_id_repr != *id {
+            format!("type {} ({})", id, long_id_repr)
         } else {
-            format!("type {} = {} {}", id, long_id, declared_type_info_str)
-        }
+            format!("type {}", id)
+        };
+
+        type_definition
     }
 
     /// Decompile an single libfunc
@@ -167,17 +174,8 @@ impl<'a> Decompiler<'a> {
                 .unwrap_or(&"".into())
         )
         .blue();
-        // Get the long ID of the libfunc, which consists of the generic ID and any generic arguments
-        let long_id = &libfunc_declaration.long_id;
-        let generic_id = long_id.generic_id.to_string();
 
-        // Parse generic arguments
-        let arguments = self.parse_arguments(&long_id.generic_args);
-
-        // Construct a string representation of the long ID
-        let long_id = format!("{}<{}>", generic_id, arguments);
-
-        format!("libfunc {} = {}", id, long_id)
+        format!("libfunc {}", id)
     }
 
     /// Decompiles the functions prototypes
