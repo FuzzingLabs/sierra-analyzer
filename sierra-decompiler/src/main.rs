@@ -4,7 +4,6 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use cairo_lang_starknet_classes::contract_class::ContractClass;
-
 use clap::Parser;
 use sierra_analyzer_lib::sierra_program;
 
@@ -18,6 +17,10 @@ struct Args {
     /// Do not use colored output
     #[clap(short, long, default_value = "false")]
     no_color: bool,
+
+    /// Generate a CFG graph instead of normal output
+    #[clap(short, long, default_value = "false")]
+    cfg: bool,
 }
 
 fn main() {
@@ -29,25 +32,26 @@ fn main() {
     file.read_to_string(&mut content)
         .expect("Failed to read file");
 
-    // Decompile a serialized Sierra program
-    // Deserialize the JSON content into a ContractClass
-    if let Ok(prog) = serde_json::from_str::<ContractClass>(&content) {
-        let prog_sierra = prog.extract_sierra_program().unwrap();
+    // Try to deserialize the JSON content into a ContractClass, and extract Sierra program
+    let program_string = serde_json::from_str::<ContractClass>(&content)
+        .ok()
+        .and_then(|prog| prog.extract_sierra_program().ok())
+        .map_or_else(|| content.clone(), |prog_sierra| prog_sierra.to_string()); // Use original content if deserialization fails
 
-        // Convert Sierra program to a string
-        let prog_sierra_string = format!("{}", prog_sierra.to_string());
-        let program = sierra_program::SierraProgram::new(prog_sierra_string);
+    let program = sierra_program::SierraProgram::new(program_string);
 
-        // Decompile
-        let mut decompiler = program.decompiler();
-        println!("{}", decompiler.decompile(!args.no_color));
-    }
-    // Decompile a Sierra program
-    else {
-        let program = sierra_program::SierraProgram::new(content);
+    // Determine if output should be colored
+    let colored_output = !args.no_color;
 
-        // Decompile
-        let mut decompiler = program.decompiler();
-        println!("{}", decompiler.decompile(!args.no_color));
+    // Decompile normally
+    let mut decompiler = program.decompiler();
+    let decompiled_code = decompiler.decompile(colored_output);
+
+    if args.cfg {
+        // If the cfg flag is true, generate and print the CFG dot graph
+        let cfg_graph = decompiler.generate_cfg(); // This method should exist in SierraProgram to generate CFG
+        println!("{}", cfg_graph);
+    } else {
+        println!("{}", decompiled_code);
     }
 }
