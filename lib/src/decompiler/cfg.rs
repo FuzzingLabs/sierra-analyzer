@@ -1,10 +1,12 @@
 use std::cmp::PartialEq;
 use std::collections::HashSet;
 
+use cairo_lang_sierra::ids::FunctionId;
 use cairo_lang_sierra::program::BranchTarget;
 use cairo_lang_sierra::program::GenStatement;
 
 use crate::decompiler::function::SierraStatement;
+use crate::parse_element_name;
 
 /// A struct representing a control flow graph (CFG) for a function
 ///
@@ -14,6 +16,8 @@ use crate::decompiler::function::SierraStatement;
 /// - Edges denote control flow transfers (conditional branches, jumps, fallthroughs)
 #[derive(Debug, Clone)]
 pub struct ControlFlowGraph {
+    /// Function name or ID
+    function_name: String,
     /// List of statements in the function
     statements: Vec<SierraStatement>,
     /// List of basic blocks in the CFG
@@ -22,8 +26,9 @@ pub struct ControlFlowGraph {
 
 impl<'a> ControlFlowGraph {
     /// Creates a new `ControlFlowGraph` instance
-    pub fn new(statements: Vec<SierraStatement>) -> Self {
+    pub fn new(function_name: String, statements: Vec<SierraStatement>) -> Self {
         Self {
+            function_name,
             statements,
             basic_blocks: Vec::new(),
         }
@@ -180,6 +185,18 @@ impl<'a> ControlFlowGraph {
             }
         }
         parents
+    }
+
+    /// Generates the DOT format subgraph for function CFG
+    pub fn generate_dot_graph(&self) -> String {
+        // Start the subgraph with the function name
+        let mut dot_graph = format!("\tsubgraph \"cluster_{}\" {{\n", self.function_name);
+        dot_graph += &format!("\t\tlabel=\"{}\"\n", self.function_name);
+
+        // Close the subgraph
+        dot_graph += "\t}\n";
+
+        dot_graph
     }
 }
 

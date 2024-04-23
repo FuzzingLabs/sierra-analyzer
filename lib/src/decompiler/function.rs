@@ -8,7 +8,7 @@ use cairo_lang_sierra::program::StatementIdx;
 use crate::decompiler::cfg::ControlFlowGraph;
 use crate::decompiler::cfg::SierraConditionalBranch;
 use crate::extract_parameters;
-use crate::parse_libfunc_name;
+use crate::parse_element_name;
 
 /// A struct representing a statement
 #[derive(Debug, Clone)]
@@ -61,7 +61,7 @@ impl SierraStatement {
             // Function calls & variables assignments
             GenStatement::Invocation(invocation) => {
                 // Function name in blue
-                let libfunc_id_str = parse_libfunc_name!(invocation.libfunc_id).blue();
+                let libfunc_id_str = parse_element_name!(invocation.libfunc_id).blue();
 
                 // Function parameters
                 let parameters = extract_parameters!(invocation.args);
@@ -107,7 +107,7 @@ impl SierraStatement {
                 let statement = self.statement.clone();
 
                 // Function name
-                let libfunc_id_str = parse_libfunc_name!(invocation.libfunc_id);
+                let libfunc_id_str = parse_element_name!(invocation.libfunc_id);
 
                 // Parameters
                 let parameters = extract_parameters!(invocation.args);
@@ -208,7 +208,10 @@ impl<'a> Function<'a> {
     /// Initializes the control flow graph (CFG) for the function
     pub fn create_cfg(&mut self) {
         // Create a new control flow graph instance
-        let mut cfg = ControlFlowGraph::new(self.statements.clone());
+        let mut cfg = ControlFlowGraph::new(
+            parse_element_name!(self.function.id.clone()),
+            self.statements.clone(),
+        );
 
         // Generate the CFG basic blocks
         cfg.generate_basic_blocks();
