@@ -471,4 +471,19 @@ impl<'a> Decompiler<'a> {
 
         decompiled_basic_block
     }
+
+    /// Generates a control flow graph representation (CFG) in DOT format
+    pub fn generate_cfg(&mut self) -> String {
+        let mut dot = format!("digraph {{\n");
+
+        // Add a CFG representation for each function
+        for function in &mut self.functions {
+            function.create_cfg();
+        }
+
+        // Add the closing curly braces to the DOT graph representation
+        dot.push_str("}");
+
+        dot
+    }
 }

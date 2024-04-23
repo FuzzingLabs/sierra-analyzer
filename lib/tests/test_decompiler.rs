@@ -2,7 +2,7 @@ use sierra_analyzer_lib::sierra_program::SierraProgram;
 
 #[test]
 fn test_decompiler_output() {
-	// Read file content
+    // Read file content
     let content = include_str!("../../examples/sierra/fib.sierra").to_string();
 
     // Init a new SierraProgram with the .sierra file content

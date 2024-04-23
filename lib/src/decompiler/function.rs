@@ -92,6 +92,13 @@ impl SierraStatement {
         }
     }
 
+    /// Return the raw statement, as in the original sierra file
+    /// Used in the CFG
+    #[inline]
+    pub fn raw_statement(&self) -> String {
+        self.statement.to_string()
+    }
+
     /// Returns a reference to this statement as a conditional branch if it is one
     pub fn as_conditional_branch(&self) -> Option<SierraConditionalBranch> {
         if self.is_conditional_branch {
