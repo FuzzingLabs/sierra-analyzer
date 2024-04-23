@@ -1,7 +1,7 @@
-/// Macro to parse the debug name from a libfunc_id,
-/// using the debug_name if present or falling back to the id field
+/// Macro to parse the debug name from a libfunc or a function ID,
+/// using the debug_name if present or falling back to the ID field
 #[macro_export]
-macro_rules! parse_libfunc_name {
+macro_rules! parse_element_name {
     ($libfunc_id:expr) => {
         if let Some(debug_name) = &$libfunc_id.debug_name {
             debug_name.to_string()
@@ -13,7 +13,7 @@ macro_rules! parse_libfunc_name {
 
 /// Macro to extract parameters from the args field of a GenInvocation object.
 /// It converts each parameter into a String, using the debug_name if available,
-/// otherwise using the id field.
+/// otherwise using the ID field
 #[macro_export]
 macro_rules! extract_parameters {
     ($args:expr) => {

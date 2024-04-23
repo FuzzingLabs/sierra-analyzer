@@ -30,6 +30,19 @@ For a colourless output :
 cargo run --bin sierra-decompiler <sierra file> --no-color
 ```
 
+#### Print the contract's Control-Flow Graph
+
+```
+cargo run ./examples/sierra/fib_array.sierra --cfg  
+
+# Output the Control-Flow Graph to a custom folder (default is ./output_cfg)
+cargo run ./tests/sierra_files/fib_array.sierra --cfg --cfg-output ./test 
+```
+
+<p align="center">
+	<img src="/doc/images/cfg-output.png" height="400px"/>
+</p>
+
 #### Use it as a library 
 
 It is also possible to use the `sierra-analyzer-lib` library to decompile serialised or unserialised Sierra files.
@@ -39,6 +52,6 @@ Examples can be found [here](/lib/examples/).
 #### Features
 
 - [x] Decompiler
-- [ ] Control-Flow Graph
+- [x] Control-Flow Graph
 - [ ] Call Graph
 - [ ] Security detectors

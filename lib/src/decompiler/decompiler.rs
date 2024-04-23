@@ -6,6 +6,7 @@ use cairo_lang_sierra::program::LibfuncDeclaration;
 use cairo_lang_sierra::program::StatementIdx;
 use cairo_lang_sierra::program::TypeDeclaration;
 
+use crate::config::GraphConfig;
 use crate::decompiler::cfg::BasicBlock;
 use crate::decompiler::cfg::EdgeType;
 use crate::decompiler::function::Function;
@@ -470,5 +471,52 @@ impl<'a> Decompiler<'a> {
         }
 
         decompiled_basic_block
+    }
+
+    /// Generates a control flow graph representation (CFG) in DOT format
+    pub fn generate_cfg(&mut self) -> String {
+        let mut dot = String::from("digraph {\n");
+
+        // Global graph configuration
+        dot.push_str(&format!(
+            "\tgraph [fontname=\"{}\" fontsize={} layout={} newrank={} overlap={}];\n",
+            GraphConfig::CFG_GRAPH_ATTR_FONTNAME,
+            GraphConfig::CFG_GRAPH_ATTR_FONTSIZE,
+            GraphConfig::CFG_GRAPH_ATTR_LAYOUT,
+            GraphConfig::CFG_GRAPH_ATTR_NEWRANK,
+            GraphConfig::CFG_GRAPH_ATTR_OVERLAP,
+        ));
+        // Global node configuration
+        dot.push_str(&format!("\tnode [color=\"{}\" fillcolor=\"{}\" fontname=\"{}\" margin={} shape=\"{}\" style=\"{}\"];\n",
+            GraphConfig::CFG_NODE_ATTR_COLOR,
+            GraphConfig::CFG_NODE_ATTR_FILLCOLOR,
+            GraphConfig::CFG_NODE_ATTR_FONTNAME,
+            GraphConfig::CFG_NODE_ATTR_MARGIN,
+            GraphConfig::CFG_NODE_ATTR_SHAPE,
+            GraphConfig::CFG_NODE_ATTR_STYLE,
+        ));
+        // Global edge configuration
+        dot.push_str(&format!("\tedge [arrowsize={} fontname=\"{}\" labeldistance={} labelfontcolor=\"{}\" penwidth={}];\n",
+            GraphConfig::CFG_EDGE_ATTR_ARROWSIZE,
+            GraphConfig::CFG_EDGE_ATTR_FONTNAME,
+            GraphConfig::CFG_EDGE_ATTR_LABELDISTANCE,
+            GraphConfig::CFG_EDGE_ATTR_LABELFONTCOLOR,
+            GraphConfig::CFG_EDGE_ATTR_PENWIDTH,
+        ));
+
+        // Add a CFG representation for each function
+        for function in &mut self.functions {
+            function.create_cfg();
+            if let Some(cfg) = &function.cfg {
+                // Generate function subgraph
+                let subgraph = cfg.generate_dot_graph();
+                dot += &subgraph;
+            }
+        }
+
+        // Add the closing curly braces to the DOT graph representation
+        dot.push_str("}\n");
+
+        dot
     }
 }
