@@ -506,10 +506,10 @@ impl<'a> Decompiler<'a> {
 
         // Add a CFG representation for each function
         for function in &mut self.functions {
-            function.create_cfg(); 
+            function.create_cfg();
             if let Some(cfg) = &function.cfg {
                 // Generate function subgraph
-                let subgraph = cfg.generate_dot_graph(); 
+                let subgraph = cfg.generate_dot_graph();
                 dot += &subgraph;
             }
         }

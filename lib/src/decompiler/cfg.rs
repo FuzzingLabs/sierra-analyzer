@@ -1,12 +1,11 @@
 use std::cmp::PartialEq;
 use std::collections::HashSet;
 
-use cairo_lang_sierra::ids::FunctionId;
 use cairo_lang_sierra::program::BranchTarget;
 use cairo_lang_sierra::program::GenStatement;
 
+use crate::config::GraphConfig;
 use crate::decompiler::function::SierraStatement;
-use crate::parse_element_name;
 
 /// A struct representing a control flow graph (CFG) for a function
 ///
@@ -189,14 +188,72 @@ impl<'a> ControlFlowGraph {
 
     /// Generates the DOT format subgraph for function CFG
     pub fn generate_dot_graph(&self) -> String {
-        // Start the subgraph with the function name
         let mut dot_graph = format!("\tsubgraph \"cluster_{}\" {{\n", self.function_name);
         dot_graph += &format!("\t\tlabel=\"{}\"\n", self.function_name);
+        dot_graph += &format!(
+            "\t\tfontname=\"{}\";\n",
+            GraphConfig::CFG_GRAPH_ATTR_FONTNAME
+        );
+        dot_graph += &format!("\t\tfontsize={};\n", GraphConfig::CFG_GRAPH_ATTR_FONTSIZE);
 
-        // Close the subgraph
+        // Iterate over each basic block to create nodes
+        for block in &self.basic_blocks {
+            let mut label_instruction = String::new();
+            for statement in &block.statements {
+                label_instruction +=
+                    &format!("{} : {}\\l", statement.offset, statement.raw_statement());
+            }
+            dot_graph += &format!(
+                "\t\t\"{}\" [label=\"{}\" shape=\"box\" style=\"{}\" fillcolor=\"{}\" color=\"{}\" fontname=\"{}\" margin=\"{}\"];\n",
+                block.name,
+                label_instruction,
+                GraphConfig::CFG_NODE_ATTR_STYLE,
+                GraphConfig::CFG_NODE_ATTR_FILLCOLOR,
+                GraphConfig::CFG_NODE_ATTR_COLOR,
+                GraphConfig::CFG_NODE_ATTR_FONTNAME,
+                GraphConfig::CFG_NODE_ATTR_MARGIN
+            );
+        }
+
+        // Add edges between nodes
+        for block in &self.basic_blocks {
+            for edge in &block.edges {
+                let color = match edge.edge_type {
+                    EdgeType::ConditionalTrue => GraphConfig::EDGE_CONDITIONAL_TRUE_COLOR,
+                    EdgeType::ConditionalFalse => GraphConfig::EDGE_CONDITIONAL_FALSE_COLOR,
+                    EdgeType::Unconditional => GraphConfig::EDGE_UNCONDITIONAL_COLOR,
+                    EdgeType::Fallthrough => GraphConfig::EDGE_FALLTHROUGH_COLOR,
+                };
+                if self
+                    .basic_blocks
+                    .iter()
+                    .any(|b| b.start_offset == edge.destination)
+                {
+                    dot_graph += &format!(
+                        "\t\t\"{}\" -> \"{}\" [color=\"{}\" arrowsize={} fontname=\"{}\" labeldistance={} labelfontcolor=\"{}\" penwidth={}];\n",
+                        block.name,
+                        self.get_block_name_by_offset(edge.destination),
+                        color,
+                        GraphConfig::CFG_EDGE_ATTR_ARROWSIZE,
+                        GraphConfig::CFG_EDGE_ATTR_FONTNAME,
+                        GraphConfig::CFG_EDGE_ATTR_LABELDISTANCE,
+                        GraphConfig::CFG_EDGE_ATTR_LABELFONTCOLOR,
+                        GraphConfig::CFG_EDGE_ATTR_PENWIDTH
+                    );
+                }
+            }
+        }
+
         dot_graph += "\t}\n";
-
         dot_graph
+    }
+
+    /// Retrieves the name of a basic block based on its start offset
+    fn get_block_name_by_offset(&self, offset: u32) -> String {
+        self.basic_blocks
+            .iter()
+            .find(|&b| b.start_offset == offset)
+            .map_or(String::from("Unknown"), |b| b.name.clone())
     }
 }
 
