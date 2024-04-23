@@ -8,7 +8,7 @@ impl GraphConfig {
     pub const CFG_NODE_ATTR_COLOR: &'static str = "#9E9E9E";
     pub const CFG_NODE_ATTR_FILLCOLOR: &'static str = "#F5F5F5";
     pub const CFG_NODE_ATTR_FONTNAME: &'static str = "Helvetica,Arial,sans-serif";
-    pub const CFG_NODE_ATTR_MARGIN: &'static str = "0.4";
+    pub const CFG_NODE_ATTR_MARGIN: &'static str = "0.2";
 
     // Graph attributes for CFG
     pub const CFG_GRAPH_ATTR_OVERLAP: &'static str = "scale";

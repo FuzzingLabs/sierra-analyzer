@@ -26,7 +26,7 @@ struct Args {
     cfg: bool,
 
     /// Output directory for the CFG file
-    #[clap(long, default_value = "./")]
+    #[clap(long, default_value = "./output_cfg")]
     cfg_output: PathBuf,
 }
 
@@ -46,8 +46,11 @@ fn main() {
         .map_or_else(|| content.clone(), |prog_sierra| prog_sierra.to_string());
     let program = sierra_program::SierraProgram::new(program_string);
 
+    // Color output by default and if CFG is not enabled to avoid bugs in the SVG output
+    let colored_output = !args.no_color ^ args.cfg;
+
     let mut decompiler = program.decompiler();
-    let decompiled_code = decompiler.decompile(!args.no_color);
+    let decompiled_code = decompiler.decompile(colored_output);
 
     if args.cfg {
         // Determine the full path for the output file
