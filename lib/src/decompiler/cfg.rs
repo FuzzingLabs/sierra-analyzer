@@ -200,9 +200,13 @@ impl<'a> ControlFlowGraph {
         for block in &self.basic_blocks {
             let mut label_instruction = String::new();
             for statement in &block.statements {
-                label_instruction +=
-                    &format!("{} : {}\t\t\\l", statement.offset, statement.raw_statement());
+                label_instruction += &format!(
+                    "{} : {}\t\t\\l",
+                    statement.offset,
+                    statement.raw_statement()
+                );
             }
+            
             dot_graph += &format!(
                 "\t\t\"{}\" [label=\"{}\" shape=\"box\" style=\"{}\" fillcolor=\"{}\" color=\"{}\" fontname=\"{}\" margin=\"{}\"];\n",
                 block.name,
