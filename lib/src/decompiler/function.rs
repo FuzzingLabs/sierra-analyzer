@@ -43,7 +43,7 @@ impl SierraStatement {
 
     /// Formats the statement as a string
     /// We try to format them in a way that is as similar as possible to the Cairo syntax
-    pub fn formatted_statement(&self) -> String {
+    pub fn formatted_statement(&self) -> Option<String> {
         match &self.statement {
             // Return statements
             GenStatement::Return(vars) => {
@@ -56,39 +56,53 @@ impl SierraStatement {
                     formatted.push_str(&format!("v{}", var.id));
                 }
                 formatted.push_str(")");
-                formatted
+                Some(formatted)
             }
             // Function calls & variables assignments
             GenStatement::Invocation(invocation) => {
-                // Function name in blue
-                let libfunc_id_str = parse_element_name!(invocation.libfunc_id).blue();
+                if let libfunc_id = parse_element_name!(invocation.libfunc_id) {
+                    if !Self::is_function_allowed(&libfunc_id) {
+                        return None; // Skip formatting if function is not allowed to simplify the decompiler output
+                    }
+                    let libfunc_id_str = libfunc_id.blue();
 
-                // Function parameters
-                let parameters = extract_parameters!(invocation.args);
-                let parameters_str = parameters.join(", ");
+                    // Function parameters
+                    let parameters = extract_parameters!(invocation.args);
+                    let parameters_str = parameters.join(", ");
 
-                // Assigned variables
-                let assigned_variables = extract_parameters!(&invocation
-                    .branches
-                    .first()
-                    .map(|branch| &branch.results)
-                    .unwrap_or(&vec![]));
-                let assigned_variables_str = if !assigned_variables.is_empty() {
-                    assigned_variables.join(", ")
+                    // Assigned variables
+                    let assigned_variables = extract_parameters!(&invocation
+                        .branches
+                        .first()
+                        .map(|branch| &branch.results)
+                        .unwrap_or(&vec![]));
+                    let assigned_variables_str = if !assigned_variables.is_empty() {
+                        assigned_variables.join(", ")
+                    } else {
+                        String::new()
+                    };
+
+                    // Format the string based on the presence of assigned variables
+                    if !assigned_variables.is_empty() {
+                        Some(format!(
+                            "{} = {}({})",
+                            assigned_variables_str, libfunc_id_str, parameters_str
+                        ))
+                    } else {
+                        Some(format!("{}({})", libfunc_id_str, parameters_str))
+                    }
                 } else {
-                    String::new()
-                };
-
-                // Format the string based on the presence of assigned variables
-                if !assigned_variables.is_empty() {
-                    format!(
-                        "{} = {}({})",
-                        assigned_variables_str, libfunc_id_str, parameters_str
-                    )
-                } else {
-                    format!("{}({})", libfunc_id_str, parameters_str)
+                    None // Return None if unable to parse function name
                 }
             }
+        }
+    }
+
+    /// Checks if the given function name is allowed to be included in the formatted statement
+    fn is_function_allowed(function_name: &str) -> bool {
+        match function_name {
+            "branch_align" => false,
+            _ => true,
         }
     }
 

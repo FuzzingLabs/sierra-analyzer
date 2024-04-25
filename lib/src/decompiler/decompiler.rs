@@ -465,8 +465,9 @@ impl<'a> Decompiler<'a> {
             }
             // Default case
             else {
-                decompiled_basic_block +=
-                    &format!("{}{}\n", indentation, statement.formatted_statement());
+                if let Some(formatted_statement) = statement.formatted_statement() {
+                    decompiled_basic_block += &format!("{}{}\n", indentation, formatted_statement);
+                }
             }
         }
 

@@ -206,7 +206,7 @@ impl<'a> ControlFlowGraph {
                     statement.raw_statement()
                 );
             }
-            
+
             dot_graph += &format!(
                 "\t\t\"{}\" [label=\"{}\" shape=\"box\" style=\"{}\" fillcolor=\"{}\" color=\"{}\" fontname=\"{}\" margin=\"{}\"];\n",
                 block.name,
