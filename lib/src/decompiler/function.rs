@@ -1,4 +1,6 @@
 use colored::*;
+use lazy_static::lazy_static;
+use regex::Regex;
 
 use cairo_lang_sierra::program::BranchTarget;
 use cairo_lang_sierra::program::GenFunction;
@@ -9,6 +11,17 @@ use crate::decompiler::cfg::ControlFlowGraph;
 use crate::decompiler::cfg::SierraConditionalBranch;
 use crate::extract_parameters;
 use crate::parse_element_name;
+
+lazy_static! {
+    /// Those libfuncs id patterns are blacklisted from the regular decompiler output (not the verbose)
+    /// to make it more readable
+    /// We use lazy_static for performances issues
+
+    // Variable drop
+    static ref DROP_REGEX: Regex = Regex::new(r"drop(<.*>)?").unwrap();
+    // Store temporary variable
+    static ref STORE_TEMP_REGEX: Regex = Regex::new(r"store_temp(<.*>)?").unwrap();
+}
 
 /// A struct representing a statement
 #[derive(Debug, Clone)]
@@ -60,39 +73,36 @@ impl SierraStatement {
             }
             // Function calls & variables assignments
             GenStatement::Invocation(invocation) => {
-                if let libfunc_id = parse_element_name!(invocation.libfunc_id) {
-                    if !Self::is_function_allowed(&libfunc_id) {
-                        return None; // Skip formatting if function is not allowed to simplify the decompiler output
-                    }
-                    let libfunc_id_str = libfunc_id.blue();
+                let libfunc_id = parse_element_name!(invocation.libfunc_id);
+                if !Self::is_function_allowed(&libfunc_id) {
+                    return None; // Skip formatting if function is not allowed to simplify the decompiler output
+                }
+                let libfunc_id_str = libfunc_id.blue();
 
-                    // Function parameters
-                    let parameters = extract_parameters!(invocation.args);
-                    let parameters_str = parameters.join(", ");
+                // Function parameters
+                let parameters = extract_parameters!(invocation.args);
+                let parameters_str = parameters.join(", ");
 
-                    // Assigned variables
-                    let assigned_variables = extract_parameters!(&invocation
-                        .branches
-                        .first()
-                        .map(|branch| &branch.results)
-                        .unwrap_or(&vec![]));
-                    let assigned_variables_str = if !assigned_variables.is_empty() {
-                        assigned_variables.join(", ")
-                    } else {
-                        String::new()
-                    };
-
-                    // Format the string based on the presence of assigned variables
-                    if !assigned_variables.is_empty() {
-                        Some(format!(
-                            "{} = {}({})",
-                            assigned_variables_str, libfunc_id_str, parameters_str
-                        ))
-                    } else {
-                        Some(format!("{}({})", libfunc_id_str, parameters_str))
-                    }
+                // Assigned variables
+                let assigned_variables = extract_parameters!(&invocation
+                    .branches
+                    .first()
+                    .map(|branch| &branch.results)
+                    .unwrap_or(&vec![]));
+                let assigned_variables_str = if !assigned_variables.is_empty() {
+                    assigned_variables.join(", ")
                 } else {
-                    None // Return None if unable to parse function name
+                    String::new()
+                };
+
+                // Format the string based on the presence of assigned variables
+                if !assigned_variables.is_empty() {
+                    Some(format!(
+                        "{} = {}({})",
+                        assigned_variables_str, libfunc_id_str, parameters_str
+                    ))
+                } else {
+                    Some(format!("{}({})", libfunc_id_str, parameters_str))
                 }
             }
         }
@@ -101,8 +111,15 @@ impl SierraStatement {
     /// Checks if the given function name is allowed to be included in the formatted statement
     fn is_function_allowed(function_name: &str) -> bool {
         match function_name {
-            "branch_align" => false,
-            _ => true,
+            "branch_align" | "disable_ap_tracking" => false,
+            _ => {
+                // Check blacklisted functions patterns
+                if DROP_REGEX.is_match(function_name) || STORE_TEMP_REGEX.is_match(function_name) {
+                    false
+                } else {
+                    true
+                }
+            }
         }
     }
 
