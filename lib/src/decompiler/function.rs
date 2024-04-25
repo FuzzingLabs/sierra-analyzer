@@ -15,12 +15,18 @@ use crate::parse_element_name;
 lazy_static! {
     /// Those libfuncs id patterns are blacklisted from the regular decompiler output (not the verbose)
     /// to make it more readable
+    ///
     /// We use lazy_static for performances issues
 
     // Variable drop
     static ref DROP_REGEX: Regex = Regex::new(r"drop(<.*>)?").unwrap();
     // Store temporary variable
     static ref STORE_TEMP_REGEX: Regex = Regex::new(r"store_temp(<.*>)?").unwrap();
+
+    /// These are libfuncs id patterns whose representation in the decompiler output can be improved
+
+    // User defined function call
+    static ref FUNCTION_CALL_REGEX: Regex = Regex::new(r"function_call<(.*)>").unwrap();
 }
 
 /// A struct representing a statement
@@ -58,7 +64,6 @@ impl SierraStatement {
     /// We try to format them in a way that is as similar as possible to the Cairo syntax
     pub fn formatted_statement(&self) -> Option<String> {
         match &self.statement {
-            // Return statements
             GenStatement::Return(vars) => {
                 let mut formatted = "return".red().to_string();
                 formatted.push_str(" (");
@@ -71,19 +76,16 @@ impl SierraStatement {
                 formatted.push_str(")");
                 Some(formatted)
             }
-            // Function calls & variables assignments
             GenStatement::Invocation(invocation) => {
                 let libfunc_id = parse_element_name!(invocation.libfunc_id);
                 if !Self::is_function_allowed(&libfunc_id) {
-                    return None; // Skip formatting if function is not allowed to simplify the decompiler output
+                    return None; // Skip formatting if function is not allowed
                 }
                 let libfunc_id_str = libfunc_id.blue();
 
-                // Function parameters
+                // Extract parameters and assigned variables
                 let parameters = extract_parameters!(invocation.args);
                 let parameters_str = parameters.join(", ");
-
-                // Assigned variables
                 let assigned_variables = extract_parameters!(&invocation
                     .branches
                     .first()
@@ -95,15 +97,19 @@ impl SierraStatement {
                     String::new()
                 };
 
-                // Format the string based on the presence of assigned variables
-                if !assigned_variables.is_empty() {
-                    Some(format!(
-                        "{} = {}({})",
-                        assigned_variables_str, libfunc_id_str, parameters_str
-                    ))
-                } else {
-                    Some(format!("{}({})", libfunc_id_str, parameters_str))
+                // Check if it matches store_temp and compare assigned variables with parameters
+                if STORE_TEMP_REGEX.is_match(&libfunc_id)
+                    && assigned_variables_str == parameters_str
+                {
+                    return None; // Do not format if it's a redundant store_temp
                 }
+
+                // Use custom formatting method
+                Some(Self::invocation_formatting(
+                    &assigned_variables_str,
+                    &libfunc_id_str,
+                    &parameters_str,
+                ))
             }
         }
     }
@@ -114,12 +120,46 @@ impl SierraStatement {
             "branch_align" | "disable_ap_tracking" => false,
             _ => {
                 // Check blacklisted functions patterns
-                if DROP_REGEX.is_match(function_name) || STORE_TEMP_REGEX.is_match(function_name) {
+                if DROP_REGEX.is_match(function_name) {
                     false
                 } else {
                     true
                 }
             }
+        }
+    }
+
+    /// Formats an invocation statement
+    /// TODO: Create more readable representations for specific cases
+    fn invocation_formatting(
+        assigned_variables_str: &str,
+        libfunc_id_str: &str,
+        parameters_str: &str,
+    ) -> String {
+        // Check if the function call matches the "function_call" pattern
+        if let Some(caps) = FUNCTION_CALL_REGEX.captures(libfunc_id_str) {
+            if let Some(inner_func) = caps.get(1) {
+                // Use the extracted inner function name for formatting
+                let formatted_func = inner_func.as_str();
+                if !assigned_variables_str.is_empty() {
+                    return format!(
+                        "{} = {}({})",
+                        assigned_variables_str, formatted_func, parameters_str
+                    );
+                } else {
+                    return format!("{}({})", formatted_func, parameters_str);
+                }
+            }
+        }
+
+        // Default formatting if not a special function call
+        if !assigned_variables_str.is_empty() {
+            format!(
+                "{} = {}({})",
+                assigned_variables_str, libfunc_id_str, parameters_str
+            )
+        } else {
+            format!("{}({})", libfunc_id_str, parameters_str)
         }
     }
 
