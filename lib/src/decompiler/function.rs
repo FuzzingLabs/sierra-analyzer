@@ -27,6 +27,10 @@ lazy_static! {
 
     // User defined function call
     static ref FUNCTION_CALL_REGEX: Regex = Regex::new(r"function_call<(.*)>").unwrap();
+    // Arithmetic operations
+    static ref ADDITION_REGEX: Regex = Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_add").unwrap();
+    static ref SUBSTRACTION_REGEX: Regex = Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_sub").unwrap();
+    static ref MULTIPLICATION_REGEX: Regex = Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_mul").unwrap();
 }
 
 /// A struct representing a statement
@@ -83,9 +87,7 @@ impl SierraStatement {
                 }
                 let libfunc_id_str = libfunc_id.blue();
 
-                // Extract parameters and assigned variables
                 let parameters = extract_parameters!(invocation.args);
-                let parameters_str = parameters.join(", ");
                 let assigned_variables = extract_parameters!(&invocation
                     .branches
                     .first()
@@ -97,18 +99,16 @@ impl SierraStatement {
                     String::new()
                 };
 
-                // Check if it matches store_temp and compare assigned variables with parameters
                 if STORE_TEMP_REGEX.is_match(&libfunc_id)
-                    && assigned_variables_str == parameters_str
+                    && assigned_variables_str == parameters.join(", ")
                 {
                     return None; // Do not format if it's a redundant store_temp
                 }
 
-                // Use custom formatting method
                 Some(Self::invocation_formatting(
                     &assigned_variables_str,
                     &libfunc_id_str,
-                    &parameters_str,
+                    &parameters,
                 ))
             }
         }
@@ -130,16 +130,17 @@ impl SierraStatement {
     }
 
     /// Formats an invocation statement
-    /// TODO: Create more readable representations for specific cases
     fn invocation_formatting(
         assigned_variables_str: &str,
         libfunc_id_str: &str,
-        parameters_str: &str,
+        parameters: &[String],
     ) -> String {
-        // Check if the function call matches the "function_call" pattern
+        // Join parameters for general use
+        let parameters_str = parameters.join(", ");
+
+        // Handling user-defined function calls
         if let Some(caps) = FUNCTION_CALL_REGEX.captures(libfunc_id_str) {
             if let Some(inner_func) = caps.get(1) {
-                // Use the extracted inner function name for formatting
                 let formatted_func = inner_func.as_str();
                 if !assigned_variables_str.is_empty() {
                     return format!(
@@ -152,15 +153,35 @@ impl SierraStatement {
             }
         }
 
-        // Default formatting if not a special function call
-        if !assigned_variables_str.is_empty() {
-            format!(
-                "{} = {}({})",
-                assigned_variables_str, libfunc_id_str, parameters_str
-            )
+        // Handling arithmetic operations
+        let operator = if ADDITION_REGEX.is_match(libfunc_id_str) {
+            "+"
+        } else if SUBSTRACTION_REGEX.is_match(libfunc_id_str) {
+            "-"
+        } else if MULTIPLICATION_REGEX.is_match(libfunc_id_str) {
+            "*"
         } else {
-            format!("{}({})", libfunc_id_str, parameters_str)
-        }
+            // Return default formatting if no special formatting is applicable
+            return if !assigned_variables_str.is_empty() {
+                format!(
+                    "{} = {}({})",
+                    assigned_variables_str, libfunc_id_str, parameters_str
+                )
+            } else {
+                format!("{}({})", libfunc_id_str, parameters_str)
+            };
+        };
+
+        // Format arithmetic operations more explicitly
+        format!(
+            "{} = {}",
+            assigned_variables_str,
+            parameters
+                .iter()
+                .map(|p| p.as_str())
+                .collect::<Vec<_>>()
+                .join(&format!(" {} ", operator))
+        )
     }
 
     /// Return the raw statement, as in the original sierra file
