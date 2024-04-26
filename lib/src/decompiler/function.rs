@@ -117,7 +117,11 @@ impl SierraStatement {
     /// Checks if the given function name is allowed to be included in the formatted statement
     fn is_function_allowed(function_name: &str) -> bool {
         match function_name {
-            "branch_align" | "disable_ap_tracking" => false,
+            "branch_align"
+            | "disable_ap_tracking"
+            | "finalize_locals"
+            | "revoke_ap_tracking"
+            | "get_builtin_costs" => false,
             _ => {
                 // Check blacklisted functions patterns
                 if DROP_REGEX.is_match(function_name) {
@@ -145,10 +149,12 @@ impl SierraStatement {
                 if !assigned_variables_str.is_empty() {
                     return format!(
                         "{} = {}({})",
-                        assigned_variables_str, formatted_func, parameters_str
+                        assigned_variables_str,
+                        formatted_func.blue(),
+                        parameters_str
                     );
                 } else {
-                    return format!("{}({})", formatted_func, parameters_str);
+                    return format!("{}({})", formatted_func.blue(), parameters_str);
                 }
             }
         }
@@ -165,10 +171,12 @@ impl SierraStatement {
             return if !assigned_variables_str.is_empty() {
                 format!(
                     "{} = {}({})",
-                    assigned_variables_str, libfunc_id_str, parameters_str
+                    assigned_variables_str,
+                    libfunc_id_str.blue(),
+                    parameters_str
                 )
             } else {
-                format!("{}({})", libfunc_id_str, parameters_str)
+                format!("{}({})", libfunc_id_str.blue(), parameters_str)
             };
         };
 

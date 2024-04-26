@@ -33,25 +33,15 @@ libfunc function_call<user@examples::fib::fib>
 
 // Function 1
 func examples::fib::fib (v0: felt252, v1: felt252, v2: felt252) -> (felt252) {
-	disable_ap_tracking()
 	v2, v3 = dup<felt252>(v2)
-	if (felt252_is_zero(v3) == 0) {
-		branch_align()
-		drop<NonZero<felt252>>(v4)
+	if (felt252_is_zero(v3) == 0) {		
 		v1, v5 = dup<felt252>(v1)
-		v6 = felt252_add(v0, v5)
+		v6 = v0 + v5
 		v7 = const_as_immediate<Const<felt252, 1>>()
-		v8 = felt252_sub(v2, v7)
-		v1 = store_temp<felt252>(v1)
-		v6 = store_temp<felt252>(v6)
-		v8 = store_temp<felt252>(v8)
-		v9 = function_call<user@examples::fib::fib>(v1, v6, v8)
+		v8 = v2 - v7
+		v9 = user@examples::fib::fib(v1, v6, v8)
 		return (v9)
-	} else {
-		branch_align()
-		drop<felt252>(v1)
-		drop<felt252>(v2)
-		v0 = store_temp<felt252>(v0)
+	} else {	
 		return (v0)
 	}
 }"#;
