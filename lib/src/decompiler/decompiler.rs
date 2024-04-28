@@ -25,16 +25,20 @@ pub struct Decompiler<'a> {
     printed_blocks: Vec<BasicBlock>,
     /// The function we are currently working on
     current_function: Option<Function<'a>>,
+    /// Enable / disable the verbose output
+    /// Some statements are not included in the regular output to improve the readability
+    verbose: bool,
 }
 
 impl<'a> Decompiler<'a> {
-    pub fn new(sierra_program: &'a SierraProgram) -> Self {
+    pub fn new(sierra_program: &'a SierraProgram, verbose: bool) -> Self {
         Decompiler {
             sierra_program,
             functions: Vec::new(),
             indentation: 1,
             printed_blocks: Vec::new(),
             current_function: None,
+            verbose: verbose,
         }
     }
 
@@ -491,7 +495,9 @@ impl<'a> Decompiler<'a> {
             }
             // Default case
             else {
-                if let Some(formatted_statement) = statement.formatted_statement() {
+                // Add the formatted statements to the block
+                // Some statements are only included in the verbose output
+                if let Some(formatted_statement) = statement.formatted_statement(self.verbose) {
                     decompiled_basic_block += &format!("{}{}\n", indentation, formatted_statement);
                 }
             }

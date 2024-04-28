@@ -66,8 +66,9 @@ impl SierraStatement {
 
     /// Formats the statement as a string
     /// We try to format them in a way that is as similar as possible to the Cairo syntax
-    pub fn formatted_statement(&self) -> Option<String> {
+    pub fn formatted_statement(&self, verbose: bool) -> Option<String> {
         match &self.statement {
+            // Return statements
             GenStatement::Return(vars) => {
                 let mut formatted = "return".red().to_string();
                 formatted.push_str(" (");
@@ -80,9 +81,10 @@ impl SierraStatement {
                 formatted.push_str(")");
                 Some(formatted)
             }
+            // Invocation statements
             GenStatement::Invocation(invocation) => {
                 let libfunc_id = parse_element_name!(invocation.libfunc_id);
-                if !Self::is_function_allowed(&libfunc_id) {
+                if !Self::is_function_allowed(&libfunc_id, verbose) {
                     return None; // Skip formatting if function is not allowed
                 }
                 let libfunc_id_str = libfunc_id.blue();
@@ -101,6 +103,8 @@ impl SierraStatement {
 
                 if STORE_TEMP_REGEX.is_match(&libfunc_id)
                     && assigned_variables_str == parameters.join(", ")
+                    // Print the redundant store_temp in the verbose output
+                    && !verbose
                 {
                     return None; // Do not format if it's a redundant store_temp
                 }
@@ -115,7 +119,12 @@ impl SierraStatement {
     }
 
     /// Checks if the given function name is allowed to be included in the formatted statement
-    fn is_function_allowed(function_name: &str) -> bool {
+    fn is_function_allowed(function_name: &str, verbose: bool) -> bool {
+        // We allow every function in the verbose output
+        if verbose {
+            return true;
+        }
+
         match function_name {
             "branch_align"
             | "disable_ap_tracking"

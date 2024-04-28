@@ -28,6 +28,10 @@ struct Args {
     /// Output directory for the CFG file
     #[clap(long, default_value = "./output_cfg")]
     cfg_output: PathBuf,
+
+    /// Enable verbose decompiler output
+    #[clap(short, long, default_value = "false")]
+    verbose: bool,
 }
 
 fn main() {
@@ -49,7 +53,7 @@ fn main() {
     // Color output by default and if CFG is not enabled to avoid bugs in the SVG output
     let colored_output = !args.no_color ^ args.cfg;
 
-    let mut decompiler = program.decompiler();
+    let mut decompiler = program.decompiler(args.verbose);
     let decompiled_code = decompiler.decompile(colored_output);
 
     if args.cfg {

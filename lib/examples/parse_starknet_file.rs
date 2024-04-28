@@ -18,8 +18,11 @@ fn main() {
     // Init a new SierraProgram with the deserialized sierra file content
     let program = SierraProgram::new(prog_sierra_string);
 
+    // Don't use the verbose output
+    let verbose_output = false;
+
     // Decompile the Sierra program
-    let mut decompiler = program.decompiler();
+    let mut decompiler = program.decompiler(verbose_output);
 
     // Print the decompiled program with use_color=true parameter
     // You can disable colored output by passing use_color=false

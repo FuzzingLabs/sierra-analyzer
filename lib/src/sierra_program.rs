@@ -29,7 +29,7 @@ impl SierraProgram {
     }
 
     /// Decompiles the Sierra program and returns a `Decompiler` instance
-    pub fn decompiler(&self) -> Decompiler {
-        Decompiler::new(self)
+    pub fn decompiler(&self, verbose: bool) -> Decompiler {
+        Decompiler::new(self, verbose)
     }
 }
