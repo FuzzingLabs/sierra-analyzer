@@ -7,7 +7,7 @@ fn main() {
     let program = SierraProgram::new(content);
 
     // Decompile the Sierra programs
-    let mut decompiler = program.decompiler();
+    let mut decompiler = program.decompiler(false);
     decompiler.decompile(false);
 
     // Generate & print the dot graph

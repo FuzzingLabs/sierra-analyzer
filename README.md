@@ -30,6 +30,12 @@ For a colourless output :
 cargo run --bin sierra-decompiler <sierra file> --no-color
 ```
 
+It it also possible to get a verbose output with more informations : 
+
+```
+cargo run --bin sierra-decompiler <sierra file> --verbose
+```
+
 #### Print the contract's Control-Flow Graph
 
 ```

@@ -1,4 +1,6 @@
 use colored::*;
+use lazy_static::lazy_static;
+use regex::Regex;
 
 use cairo_lang_sierra::program::BranchTarget;
 use cairo_lang_sierra::program::GenFunction;
@@ -9,6 +11,27 @@ use crate::decompiler::cfg::ControlFlowGraph;
 use crate::decompiler::cfg::SierraConditionalBranch;
 use crate::extract_parameters;
 use crate::parse_element_name;
+
+lazy_static! {
+    /// Those libfuncs id patterns are blacklisted from the regular decompiler output (not the verbose)
+    /// to make it more readable
+    ///
+    /// We use lazy_static for performances issues
+
+    // Variable drop
+    static ref DROP_REGEX: Regex = Regex::new(r"drop(<.*>)?").unwrap();
+    // Store temporary variable
+    static ref STORE_TEMP_REGEX: Regex = Regex::new(r"store_temp(<.*>)?").unwrap();
+
+    /// These are libfuncs id patterns whose representation in the decompiler output can be improved
+
+    // User defined function call
+    static ref FUNCTION_CALL_REGEX: Regex = Regex::new(r"function_call<(.*)>").unwrap();
+    // Arithmetic operations
+    static ref ADDITION_REGEX: Regex = Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_add").unwrap();
+    static ref SUBSTRACTION_REGEX: Regex = Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_sub").unwrap();
+    static ref MULTIPLICATION_REGEX: Regex = Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_mul").unwrap();
+}
 
 /// A struct representing a statement
 #[derive(Debug, Clone)]
@@ -43,7 +66,7 @@ impl SierraStatement {
 
     /// Formats the statement as a string
     /// We try to format them in a way that is as similar as possible to the Cairo syntax
-    pub fn formatted_statement(&self) -> String {
+    pub fn formatted_statement(&self, verbose: bool) -> Option<String> {
         match &self.statement {
             // Return statements
             GenStatement::Return(vars) => {
@@ -56,18 +79,17 @@ impl SierraStatement {
                     formatted.push_str(&format!("v{}", var.id));
                 }
                 formatted.push_str(")");
-                formatted
+                Some(formatted)
             }
-            // Function calls & variables assignments
+            // Invocation statements
             GenStatement::Invocation(invocation) => {
-                // Function name in blue
-                let libfunc_id_str = parse_element_name!(invocation.libfunc_id).blue();
+                let libfunc_id = parse_element_name!(invocation.libfunc_id);
+                if !Self::is_function_allowed(&libfunc_id, verbose) {
+                    return None; // Skip formatting if function is not allowed
+                }
+                let libfunc_id_str = libfunc_id.blue();
 
-                // Function parameters
                 let parameters = extract_parameters!(invocation.args);
-                let parameters_str = parameters.join(", ");
-
-                // Assigned variables
                 let assigned_variables = extract_parameters!(&invocation
                     .branches
                     .first()
@@ -79,17 +101,104 @@ impl SierraStatement {
                     String::new()
                 };
 
-                // Format the string based on the presence of assigned variables
-                if !assigned_variables.is_empty() {
-                    format!(
-                        "{} = {}({})",
-                        assigned_variables_str, libfunc_id_str, parameters_str
-                    )
+                if STORE_TEMP_REGEX.is_match(&libfunc_id)
+                    && assigned_variables_str == parameters.join(", ")
+                    // Print the redundant store_temp in the verbose output
+                    && !verbose
+                {
+                    return None; // Do not format if it's a redundant store_temp
+                }
+
+                Some(Self::invocation_formatting(
+                    &assigned_variables_str,
+                    &libfunc_id_str,
+                    &parameters,
+                ))
+            }
+        }
+    }
+
+    /// Checks if the given function name is allowed to be included in the formatted statement
+    fn is_function_allowed(function_name: &str, verbose: bool) -> bool {
+        // We allow every function in the verbose output
+        if verbose {
+            return true;
+        }
+
+        match function_name {
+            "branch_align"
+            | "disable_ap_tracking"
+            | "finalize_locals"
+            | "revoke_ap_tracking"
+            | "get_builtin_costs" => false,
+            _ => {
+                // Check blacklisted functions patterns
+                if DROP_REGEX.is_match(function_name) {
+                    false
                 } else {
-                    format!("{}({})", libfunc_id_str, parameters_str)
+                    true
                 }
             }
         }
+    }
+
+    /// Formats an invocation statement
+    fn invocation_formatting(
+        assigned_variables_str: &str,
+        libfunc_id_str: &str,
+        parameters: &[String],
+    ) -> String {
+        // Join parameters for general use
+        let parameters_str = parameters.join(", ");
+
+        // Handling user-defined function calls
+        if let Some(caps) = FUNCTION_CALL_REGEX.captures(libfunc_id_str) {
+            if let Some(inner_func) = caps.get(1) {
+                let formatted_func = inner_func.as_str();
+                if !assigned_variables_str.is_empty() {
+                    return format!(
+                        "{} = {}({})",
+                        assigned_variables_str,
+                        formatted_func.blue(),
+                        parameters_str
+                    );
+                } else {
+                    return format!("{}({})", formatted_func.blue(), parameters_str);
+                }
+            }
+        }
+
+        // Handling arithmetic operations
+        let operator = if ADDITION_REGEX.is_match(libfunc_id_str) {
+            "+"
+        } else if SUBSTRACTION_REGEX.is_match(libfunc_id_str) {
+            "-"
+        } else if MULTIPLICATION_REGEX.is_match(libfunc_id_str) {
+            "*"
+        } else {
+            // Return default formatting if no special formatting is applicable
+            return if !assigned_variables_str.is_empty() {
+                format!(
+                    "{} = {}({})",
+                    assigned_variables_str,
+                    libfunc_id_str.blue(),
+                    parameters_str
+                )
+            } else {
+                format!("{}({})", libfunc_id_str.blue(), parameters_str)
+            };
+        };
+
+        // Format arithmetic operations more explicitly
+        format!(
+            "{} = {}",
+            assigned_variables_str,
+            parameters
+                .iter()
+                .map(|p| p.as_str())
+                .collect::<Vec<_>>()
+                .join(&format!(" {} ", operator))
+        )
     }
 
     /// Return the raw statement, as in the original sierra file

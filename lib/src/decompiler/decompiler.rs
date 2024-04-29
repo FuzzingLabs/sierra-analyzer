@@ -25,16 +25,20 @@ pub struct Decompiler<'a> {
     printed_blocks: Vec<BasicBlock>,
     /// The function we are currently working on
     current_function: Option<Function<'a>>,
+    /// Enable / disable the verbose output
+    /// Some statements are not included in the regular output to improve the readability
+    verbose: bool,
 }
 
 impl<'a> Decompiler<'a> {
-    pub fn new(sierra_program: &'a SierraProgram) -> Self {
+    pub fn new(sierra_program: &'a SierraProgram, verbose: bool) -> Self {
         Decompiler {
             sierra_program,
             functions: Vec::new(),
             indentation: 1,
             printed_blocks: Vec::new(),
             current_function: None,
+            verbose: verbose,
         }
     }
 
@@ -346,17 +350,23 @@ impl<'a> Decompiler<'a> {
                         .iter()
                         .map(|block| {
                             self.indentation = 1; // Reset indentation after processing each block
-                            let result = self.basic_block_recursive(block);
-                            result
+                            self.basic_block_recursive(block)
                         })
                         .collect::<String>()
                 } else {
                     String::new()
                 };
 
+                // Define bold braces for function body enclosure
+                let bold_brace_open = "{".blue().bold();
+                let bold_brace_close = "}".blue().bold();
+
                 // Combine prototype and body into a formatted string
                 let purple_comment = format!("// Function {}", index + 1).purple();
-                format!("{}\n{} {{\n{}}}", purple_comment, prototype, body)
+                format!(
+                    "{}\n{} {}\n{}{}", // Added bold braces around the function body
+                    purple_comment, prototype, bold_brace_open, body, bold_brace_close
+                )
             })
             .collect();
 
@@ -368,6 +378,10 @@ impl<'a> Decompiler<'a> {
     fn basic_block_recursive(&mut self, block: &BasicBlock) -> String {
         let mut basic_blocks_str = String::new();
 
+        // Define bold braces once for use in formatting
+        let bold_brace_open = "{".blue().bold();
+        let bold_brace_close = "}".blue().bold();
+
         // Add the root basic block
         basic_blocks_str += &self.basic_block_to_string(block);
 
@@ -375,7 +389,7 @@ impl<'a> Decompiler<'a> {
         for edge in &block.edges {
             // If branch
             if edge.edge_type == EdgeType::ConditionalTrue {
-                // Indentate the if block
+                // Indent the if block
                 self.indentation += 1;
 
                 if let Some(edge_basic_block) = self
@@ -406,13 +420,18 @@ impl<'a> Decompiler<'a> {
                     .find(|b| edge.destination == b.start_offset)
                 {
                     if !self.printed_blocks.contains(edge_basic_block) {
-                        // end of if block
+                        // End of if block
                         self.indentation -= 1;
 
-                        basic_blocks_str +=
-                            &("\t".repeat(self.indentation as usize) + "} else {\n");
+                        basic_blocks_str += &format!(
+                            "{}{} else {}{}\n",
+                            "\t".repeat(self.indentation as usize),
+                            bold_brace_close,
+                            bold_brace_open,
+                            "\t".repeat(self.indentation as usize)
+                        );
 
-                        // Indentate the else block
+                        // Indent the else block
                         self.indentation += 1;
 
                         basic_blocks_str += &self.basic_block_recursive(edge_basic_block);
@@ -423,7 +442,11 @@ impl<'a> Decompiler<'a> {
                 self.indentation -= 1;
 
                 if !basic_blocks_str.is_empty() {
-                    basic_blocks_str += &("\t".repeat(self.indentation as usize) + "}\n");
+                    basic_blocks_str += &format!(
+                        "{}{}\n",
+                        "\t".repeat(self.indentation as usize),
+                        bold_brace_close
+                    );
                 }
             }
         }
@@ -445,6 +468,9 @@ impl<'a> Decompiler<'a> {
         let mut decompiled_basic_block = String::new();
         let indentation = "\t".repeat(self.indentation as usize);
 
+        // Define the bold brace
+        let bold_brace_open = "{".blue().bold();
+
         // Append each statement to the string block
         for statement in &block.statements {
             // If condition
@@ -453,8 +479,12 @@ impl<'a> Decompiler<'a> {
                     let function_name = &conditional_branch.function;
                     let function_arguments = conditional_branch.parameters.join(", ");
                     decompiled_basic_block += &format!(
-                        "{}if ({}({}) == 0) {{\n",
-                        indentation, function_name, function_arguments
+                        "{}if ({}({}) == 0) {}{}\n",
+                        indentation,
+                        function_name,
+                        function_arguments,
+                        bold_brace_open,
+                        "\t".repeat(self.indentation as usize + 1) // Adjust for nested content indentation
                     );
                 }
             }
@@ -465,8 +495,11 @@ impl<'a> Decompiler<'a> {
             }
             // Default case
             else {
-                decompiled_basic_block +=
-                    &format!("{}{}\n", indentation, statement.formatted_statement());
+                // Add the formatted statements to the block
+                // Some statements are only included in the verbose output
+                if let Some(formatted_statement) = statement.formatted_statement(self.verbose) {
+                    decompiled_basic_block += &format!("{}{}\n", indentation, formatted_statement);
+                }
             }
         }
 
