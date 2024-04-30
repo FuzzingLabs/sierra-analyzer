@@ -61,7 +61,15 @@ impl<'a> Decompiler<'a> {
         let functions = self.decompile_functions();
 
         // Format the output string
-        format!("{}\n\n{}\n\n{}", types, libfuncs, functions)
+        let mut output = String::new();
+        if self.verbose {
+            output.push_str(&types);
+            output.push_str("\n\n");
+            output.push_str(&libfuncs);
+            output.push_str("\n\n");
+        }
+        output.push_str(&functions);
+        output
     }
 
     /// Decompiles the type declarations
