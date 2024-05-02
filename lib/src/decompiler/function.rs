@@ -22,6 +22,8 @@ lazy_static! {
     static ref DROP_REGEX: Regex = Regex::new(r"drop(<.*>)?").unwrap();
     // Store temporary variable
     static ref STORE_TEMP_REGEX: Regex = Regex::new(r"store_temp(<.*>)?").unwrap();
+    // Variable duplication
+    static ref DUP_REGEX: Regex = Regex::new(r"dup(<.*>)?").unwrap();
 
     /// These are libfuncs id patterns whose representation in the decompiler output can be improved
 
@@ -165,6 +167,15 @@ impl SierraStatement {
                 } else {
                     return format!("{}({})", formatted_func.blue(), parameters_str);
                 }
+            }
+        }
+
+        // Handling variables duplications
+        // In the Sierra IR it it represented like : v1, v2 = dup<felt252>(v1)
+        // But we can represent it as a variable assignment such as : v2 = v1
+        if DUP_REGEX.is_match(libfunc_id_str) {
+            if let Some((first_var, second_var)) = assigned_variables_str.split_once(", ") {
+                return format!("{} = {}", second_var, first_var);
             }
         }
 
