@@ -37,8 +37,8 @@ lazy_static! {
 
     // Consts declarations
     pub static ref CONST_REGEXES: Vec<Regex> = vec![
-        Regex::new(r"const_as_immediate<Const<.+, (?P<const>[0-9]+)>>").unwrap(),
-        Regex::new(r"storage_base_address_const<(?P<const>[0-9]+)>").unwrap(),
-        Regex::new(r"(felt|u)_?(8|16|32|64|128|252)_const<(?P<const>[0-9]+)>").unwrap(),
+        Regex::new(r"const_as_immediate<Const<.+, (?P<const>-?[0-9]+)>>").unwrap(),
+        Regex::new(r"storage_base_address_const<(?P<const>-?[0-9]+)>").unwrap(),
+        Regex::new(r"(felt|u)_?(8|16|32|64|128|252)_const<(?P<const>-?[0-9]+)>").unwrap(),
     ];
 }
