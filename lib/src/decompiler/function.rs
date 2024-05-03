@@ -1,5 +1,6 @@
 use colored::*;
 use lazy_static::lazy_static;
+use num_bigint::BigInt;
 use regex::Regex;
 
 use cairo_lang_sierra::program::BranchTarget;
@@ -9,6 +10,7 @@ use cairo_lang_sierra::program::StatementIdx;
 
 use crate::decompiler::cfg::ControlFlowGraph;
 use crate::decompiler::cfg::SierraConditionalBranch;
+use crate::decompiler::utils::decode_hex_bigint;
 use crate::extract_parameters;
 use crate::parse_element_name;
 
@@ -193,8 +195,23 @@ impl SierraStatement {
         for regex in CONST_REGEXES.iter() {
             if let Some(captures) = regex.captures(libfunc_id_str) {
                 if let Some(const_value) = captures.name("const") {
+                    // Convert string to a BigInt in order to decode it
                     let const_value_str = const_value.as_str();
-                    return format!("{} = {}", assigned_variables_str, const_value_str);
+                    let const_value_bigint =
+                        BigInt::parse_bytes(const_value_str.as_bytes(), 10).unwrap();
+
+                    // If the const integer can be decoded to a valid string, use the string as a comment
+                    if let Some(decoded_string) = decode_hex_bigint(&const_value_bigint) {
+                        let string_comment = format!(r#"// "{}""#, decoded_string).green();
+                        return format!(
+                            "{} = {} {}",
+                            assigned_variables_str, const_value_str, string_comment
+                        );
+                    }
+                    // If the string can not be decoded as a valid string
+                    else {
+                        return format!("{} = {}", assigned_variables_str, const_value_str);
+                    }
                 }
             }
         }
