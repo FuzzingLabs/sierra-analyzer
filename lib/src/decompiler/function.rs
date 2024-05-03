@@ -1,7 +1,5 @@
 use colored::*;
-use lazy_static::lazy_static;
 use num_bigint::BigInt;
-use regex::Regex;
 
 use cairo_lang_sierra::program::BranchTarget;
 use cairo_lang_sierra::program::GenFunction;
@@ -10,48 +8,13 @@ use cairo_lang_sierra::program::StatementIdx;
 
 use crate::decompiler::cfg::ControlFlowGraph;
 use crate::decompiler::cfg::SierraConditionalBranch;
+use crate::decompiler::libfuncs_patterns::{
+    ADDITION_REGEX, CONST_REGEXES, DROP_REGEX, DUP_REGEX, FUNCTION_CALL_REGEX,
+    MULTIPLICATION_REGEX, STORE_TEMP_REGEX, SUBSTRACTION_REGEX, VARIABLE_ASSIGNMENT_REGEX,
+};
 use crate::decompiler::utils::decode_hex_bigint;
 use crate::extract_parameters;
 use crate::parse_element_name;
-
-lazy_static! {
-    /// Those libfuncs id patterns are blacklisted from the regular decompiler output (not the verbose)
-    /// to make it more readable
-    ///
-    /// We use lazy_static for performances issues
-
-    // Variable drop
-    static ref DROP_REGEX: Regex = Regex::new(r"drop(<.*>)?").unwrap();
-
-    // Store temporary variable
-    static ref STORE_TEMP_REGEX: Regex = Regex::new(r"store_temp(<.*>)?").unwrap();
-
-    /// These are libfuncs id patterns whose representation in the decompiler output can be improved
-
-    // User defined function call
-    static ref FUNCTION_CALL_REGEX: Regex = Regex::new(r"function_call<(.*)>").unwrap();
-
-    // Arithmetic operations
-    static ref ADDITION_REGEX: Regex = Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_add").unwrap();
-    static ref SUBSTRACTION_REGEX: Regex = Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_sub").unwrap();
-    static ref MULTIPLICATION_REGEX: Regex = Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_mul").unwrap();
-
-    // Variable duplication
-    static ref DUP_REGEX: Regex = Regex::new(r"dup(<.*>)?").unwrap();
-
-    // Variable renaming
-    static ref VARIABLE_ASSIGNMENT_REGEX: Vec<Regex> = vec![
-        Regex::new(r"rename<.+>").unwrap(),
-        Regex::new(r"store_temp<.+>").unwrap()
-    ];
-
-    // Consts declarations
-    static ref CONST_REGEXES: Vec<Regex> = vec![
-        Regex::new(r"const_as_immediate<Const<.+, (?P<const>[0-9]+)>>").unwrap(),
-        Regex::new(r"storage_base_address_const<(?P<const>[0-9]+)>").unwrap(),
-        Regex::new(r"(felt|u)_?(8|16|32|64|128|252)_const<(?P<const>[0-9]+)>").unwrap(),
-    ];
-}
 
 /// A struct representing a statement
 #[derive(Debug, Clone)]
@@ -133,6 +96,7 @@ impl SierraStatement {
                     &assigned_variables_str,
                     &libfunc_id_str,
                     &parameters,
+                    &verbose,
                 ))
             }
         }
@@ -167,9 +131,15 @@ impl SierraStatement {
         assigned_variables_str: &str,
         libfunc_id_str: &str,
         parameters: &[String],
+        verbose: &bool,
     ) -> String {
         // Join parameters for general use
         let parameters_str = parameters.join(", ");
+
+        if *verbose {
+            // If verbose is true, return the invocation as is
+            return format!("{}({})", libfunc_id_str.blue(), parameters_str);
+        }
 
         // Handling user-defined function calls
         if let Some(caps) = FUNCTION_CALL_REGEX.captures(libfunc_id_str) {

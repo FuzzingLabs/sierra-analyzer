@@ -11,6 +11,7 @@ use crate::decompiler::cfg::BasicBlock;
 use crate::decompiler::cfg::EdgeType;
 use crate::decompiler::function::Function;
 use crate::decompiler::function::SierraStatement;
+use crate::decompiler::libfuncs_patterns::IS_ZERO_REGEX;
 use crate::sierra_program::SierraProgram;
 
 /// A struct that represents a decompiler for a Sierra program
@@ -476,9 +477,6 @@ impl<'a> Decompiler<'a> {
         let mut decompiled_basic_block = String::new();
         let indentation = "\t".repeat(self.indentation as usize);
 
-        // Define the bold brace
-        let bold_brace_open = "{".blue().bold();
-
         // Append each statement to the string block
         for statement in &block.statements {
             // If condition
@@ -486,13 +484,10 @@ impl<'a> Decompiler<'a> {
                 if block.edges.len() == 2 {
                     let function_name = &conditional_branch.function;
                     let function_arguments = conditional_branch.parameters.join(", ");
-                    decompiled_basic_block += &format!(
-                        "{}if ({}({}) == 0) {}{}\n",
-                        indentation,
+                    decompiled_basic_block += &Self::format_if_statement(
                         function_name,
                         function_arguments,
-                        bold_brace_open,
-                        "\t".repeat(self.indentation as usize + 1) // Adjust for nested content indentation
+                        self.indentation as usize,
                     );
                 }
             }
@@ -512,6 +507,36 @@ impl<'a> Decompiler<'a> {
         }
 
         decompiled_basic_block
+    }
+
+    /// Formats an `if` statement with the given function name, function arguments, and indentation level.
+    fn format_if_statement(
+        function_name: &str,
+        function_arguments: String,
+        indentation: usize,
+    ) -> String {
+        let bold_brace_open = "{".blue().bold();
+        let indentation_str = "\t".repeat(indentation);
+
+        // Check if the function name matches the IS_ZERO_REGEX
+        if IS_ZERO_REGEX.is_match(function_name) {
+            let argument = function_arguments.trim();
+            return format!(
+                "{}if ({argument} == 0) {}{}\n",
+                indentation_str,
+                bold_brace_open,
+                "\t".repeat(indentation + 1)
+            );
+        }
+
+        format!(
+            "{}if ({}({}) == 0) {}{}\n",
+            indentation_str,
+            function_name,
+            function_arguments,
+            bold_brace_open,
+            "\t".repeat(indentation + 1) // Adjust for nested content indentation
+        )
     }
 
     /// Generates a control flow graph representation (CFG) in DOT format
