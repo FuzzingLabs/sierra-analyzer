@@ -20,19 +20,29 @@ lazy_static! {
 
     // Variable drop
     static ref DROP_REGEX: Regex = Regex::new(r"drop(<.*>)?").unwrap();
+
     // Store temporary variable
     static ref STORE_TEMP_REGEX: Regex = Regex::new(r"store_temp(<.*>)?").unwrap();
-    // Variable duplication
-    static ref DUP_REGEX: Regex = Regex::new(r"dup(<.*>)?").unwrap();
 
     /// These are libfuncs id patterns whose representation in the decompiler output can be improved
 
     // User defined function call
     static ref FUNCTION_CALL_REGEX: Regex = Regex::new(r"function_call<(.*)>").unwrap();
+
     // Arithmetic operations
     static ref ADDITION_REGEX: Regex = Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_add").unwrap();
     static ref SUBSTRACTION_REGEX: Regex = Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_sub").unwrap();
     static ref MULTIPLICATION_REGEX: Regex = Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_mul").unwrap();
+
+    // Variable duplication
+    static ref DUP_REGEX: Regex = Regex::new(r"dup(<.*>)?").unwrap();
+
+    // Consts declarations
+    static ref CONST_REGEXES: Vec<Regex> = vec![
+        Regex::new(r"const_as_immediate<Const<.+, (?P<const>[0-9]+)>>").unwrap(),
+        Regex::new(r"storage_base_address_const<(?P<const>[0-9]+)>").unwrap(),
+        Regex::new(r"(felt|u)_?(8|16|32|64|128|252)_const<(?P<const>[0-9]+)>").unwrap(),
+    ];
 }
 
 /// A struct representing a statement
@@ -176,6 +186,16 @@ impl SierraStatement {
         if DUP_REGEX.is_match(libfunc_id_str) {
             if let Some((first_var, second_var)) = assigned_variables_str.split_once(", ") {
                 return format!("{} = {}", second_var, first_var);
+            }
+        }
+
+        // Handling const declarations
+        for regex in CONST_REGEXES.iter() {
+            if let Some(captures) = regex.captures(libfunc_id_str) {
+                if let Some(const_value) = captures.name("const") {
+                    let const_value_str = const_value.as_str();
+                    return format!("{} = {}", assigned_variables_str, const_value_str);
+                }
             }
         }
 
