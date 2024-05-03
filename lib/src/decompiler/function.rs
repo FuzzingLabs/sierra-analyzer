@@ -136,11 +136,6 @@ impl SierraStatement {
         // Join parameters for general use
         let parameters_str = parameters.join(", ");
 
-        if *verbose {
-            // If verbose is true, return the invocation as is
-            return format!("{}({})", libfunc_id_str.blue(), parameters_str);
-        }
-
         // Handling user-defined function calls
         if let Some(caps) = FUNCTION_CALL_REGEX.captures(libfunc_id_str) {
             if let Some(inner_func) = caps.get(1) {
@@ -155,6 +150,20 @@ impl SierraStatement {
                 } else {
                     return format!("{}({})", formatted_func.blue(), parameters_str);
                 }
+            }
+        }
+
+        if *verbose {
+            // If verbose is true, return the invocation as is
+            if assigned_variables_str.is_empty() {
+                return format!("{}({})", libfunc_id_str.blue(), parameters_str);
+            } else {
+                return format!(
+                    "{} = {}({})",
+                    assigned_variables_str,
+                    libfunc_id_str.blue(),
+                    parameters_str
+                );
             }
         }
 

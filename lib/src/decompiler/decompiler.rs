@@ -484,7 +484,7 @@ impl<'a> Decompiler<'a> {
                 if block.edges.len() == 2 {
                     let function_name = &conditional_branch.function;
                     let function_arguments = conditional_branch.parameters.join(", ");
-                    decompiled_basic_block += &Self::format_if_statement(
+                    decompiled_basic_block += &self.format_if_statement(
                         function_name,
                         function_arguments,
                         self.indentation as usize,
@@ -509,8 +509,9 @@ impl<'a> Decompiler<'a> {
         decompiled_basic_block
     }
 
-    /// Formats an `if` statement with the given function name, function arguments, and indentation level.
+    /// Formats an `if` statement
     fn format_if_statement(
+        &self,
         function_name: &str,
         function_arguments: String,
         indentation: usize,
@@ -519,7 +520,7 @@ impl<'a> Decompiler<'a> {
         let indentation_str = "\t".repeat(indentation);
 
         // Check if the function name matches the IS_ZERO_REGEX
-        if IS_ZERO_REGEX.is_match(function_name) {
+        if IS_ZERO_REGEX.is_match(function_name) && !self.verbose {
             let argument = function_arguments.trim();
             return format!(
                 "{}if ({argument} == 0) {}{}\n",
