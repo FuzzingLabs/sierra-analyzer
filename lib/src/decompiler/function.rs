@@ -39,6 +39,12 @@ lazy_static! {
     // Variable duplication
     static ref DUP_REGEX: Regex = Regex::new(r"dup(<.*>)?").unwrap();
 
+    // Variable renaming
+    static ref VARIABLE_ASSIGNMENT_REGEX: Vec<Regex> = vec![
+        Regex::new(r"rename<.+>").unwrap(),
+        Regex::new(r"store_temp<.+>").unwrap()
+    ];
+
     // Consts declarations
     static ref CONST_REGEXES: Vec<Regex> = vec![
         Regex::new(r"const_as_immediate<Const<.+, (?P<const>[0-9]+)>>").unwrap(),
@@ -188,6 +194,17 @@ impl SierraStatement {
         if DUP_REGEX.is_match(libfunc_id_str) {
             if let Some((first_var, second_var)) = assigned_variables_str.split_once(", ") {
                 return format!("{} = {}", second_var, first_var);
+            }
+        }
+
+        // Handling variables assignments
+        if VARIABLE_ASSIGNMENT_REGEX
+            .iter()
+            .any(|regex| regex.is_match(libfunc_id_str))
+        {
+            if let Some(old_var) = parameters.first().cloned() {
+                let assigned_variable = assigned_variables_str.to_string();
+                return format!("{} = {}", assigned_variable, old_var);
             }
         }
 
