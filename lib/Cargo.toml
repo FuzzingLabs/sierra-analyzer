@@ -9,7 +9,9 @@ edition = "2021"
 cairo-lang-sierra = "~2.6.3"
 colored = "2.1.0"
 graphviz-rust = "0.9.0"
+hex = "0.4.3"
 lazy_static = "1.4.0"
+num-bigint = "0.4.4"
 regex = "1.10.4"
 
 [dev-dependencies]

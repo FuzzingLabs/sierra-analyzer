@@ -1,6 +1,5 @@
 use colored::*;
-use lazy_static::lazy_static;
-use regex::Regex;
+use num_bigint::BigInt;
 
 use cairo_lang_sierra::program::BranchTarget;
 use cairo_lang_sierra::program::GenFunction;
@@ -9,29 +8,13 @@ use cairo_lang_sierra::program::StatementIdx;
 
 use crate::decompiler::cfg::ControlFlowGraph;
 use crate::decompiler::cfg::SierraConditionalBranch;
+use crate::decompiler::libfuncs_patterns::{
+    ADDITION_REGEX, CONST_REGEXES, DROP_REGEX, DUP_REGEX, FUNCTION_CALL_REGEX,
+    MULTIPLICATION_REGEX, STORE_TEMP_REGEX, SUBSTRACTION_REGEX, VARIABLE_ASSIGNMENT_REGEX,
+};
+use crate::decompiler::utils::decode_hex_bigint;
 use crate::extract_parameters;
 use crate::parse_element_name;
-
-lazy_static! {
-    /// Those libfuncs id patterns are blacklisted from the regular decompiler output (not the verbose)
-    /// to make it more readable
-    ///
-    /// We use lazy_static for performances issues
-
-    // Variable drop
-    static ref DROP_REGEX: Regex = Regex::new(r"drop(<.*>)?").unwrap();
-    // Store temporary variable
-    static ref STORE_TEMP_REGEX: Regex = Regex::new(r"store_temp(<.*>)?").unwrap();
-
-    /// These are libfuncs id patterns whose representation in the decompiler output can be improved
-
-    // User defined function call
-    static ref FUNCTION_CALL_REGEX: Regex = Regex::new(r"function_call<(.*)>").unwrap();
-    // Arithmetic operations
-    static ref ADDITION_REGEX: Regex = Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_add").unwrap();
-    static ref SUBSTRACTION_REGEX: Regex = Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_sub").unwrap();
-    static ref MULTIPLICATION_REGEX: Regex = Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_mul").unwrap();
-}
 
 /// A struct representing a statement
 #[derive(Debug, Clone)]
@@ -113,6 +96,7 @@ impl SierraStatement {
                     &assigned_variables_str,
                     &libfunc_id_str,
                     &parameters,
+                    &verbose,
                 ))
             }
         }
@@ -147,6 +131,7 @@ impl SierraStatement {
         assigned_variables_str: &str,
         libfunc_id_str: &str,
         parameters: &[String],
+        verbose: &bool,
     ) -> String {
         // Join parameters for general use
         let parameters_str = parameters.join(", ");
@@ -164,6 +149,65 @@ impl SierraStatement {
                     );
                 } else {
                     return format!("{}({})", formatted_func.blue(), parameters_str);
+                }
+            }
+        }
+
+        if *verbose {
+            // If verbose is true, return the invocation as is
+            if assigned_variables_str.is_empty() {
+                return format!("{}({})", libfunc_id_str.blue(), parameters_str);
+            } else {
+                return format!(
+                    "{} = {}({})",
+                    assigned_variables_str,
+                    libfunc_id_str.blue(),
+                    parameters_str
+                );
+            }
+        }
+
+        // Handling variables duplications
+        // In the Sierra IR it it represented like : v1, v2 = dup<felt252>(v1)
+        // But we can represent it as a variable assignment such as : v2 = v1
+        if DUP_REGEX.is_match(libfunc_id_str) {
+            if let Some((first_var, second_var)) = assigned_variables_str.split_once(", ") {
+                return format!("{} = {}", second_var, first_var);
+            }
+        }
+
+        // Handling variables assignments
+        if VARIABLE_ASSIGNMENT_REGEX
+            .iter()
+            .any(|regex| regex.is_match(libfunc_id_str))
+        {
+            if let Some(old_var) = parameters.first().cloned() {
+                let assigned_variable = assigned_variables_str.to_string();
+                return format!("{} = {}", assigned_variable, old_var);
+            }
+        }
+
+        // Handling const declarations
+        for regex in CONST_REGEXES.iter() {
+            if let Some(captures) = regex.captures(libfunc_id_str) {
+                if let Some(const_value) = captures.name("const") {
+                    // Convert string to a BigInt in order to decode it
+                    let const_value_str = const_value.as_str();
+                    let const_value_bigint =
+                        BigInt::parse_bytes(const_value_str.as_bytes(), 10).unwrap();
+
+                    // If the const integer can be decoded to a valid string, use the string as a comment
+                    if let Some(decoded_string) = decode_hex_bigint(&const_value_bigint) {
+                        let string_comment = format!(r#"// "{}""#, decoded_string).green();
+                        return format!(
+                            "{} = {} {}",
+                            assigned_variables_str, const_value_str, string_comment
+                        );
+                    }
+                    // If the string can not be decoded as a valid string
+                    else {
+                        return format!("{} = {}", assigned_variables_str, const_value_str);
+                    }
                 }
             }
         }
