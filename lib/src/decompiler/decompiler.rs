@@ -542,6 +542,19 @@ impl<'a> Decompiler<'a> {
         )
     }
 
+    /// Filters the functions stored in the decompiler, retaining only the one that match
+    /// the given function name
+    pub fn filter_functions(&mut self, function_name: &str) {
+        // Retain only those functions whose prototype contains the specified function name
+        self.functions.retain(|function| {
+            if let Some(proto) = &function.prototype {
+                proto.contains(function_name)
+            } else {
+                false
+            }
+        });
+    }
+
     /// Generate a callgraph representation in DOT Format
     pub fn generate_callgraph(&mut self) -> String {
         let mut dot = String::from("strict digraph G {\n");

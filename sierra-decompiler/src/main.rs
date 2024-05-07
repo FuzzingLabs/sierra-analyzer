@@ -17,6 +17,10 @@ struct Args {
     /// Sierra program file
     sierra_file: PathBuf,
 
+    /// Function name to only get one function for CFG & Callgraph
+    #[clap(long)]
+    function: Option<String>,
+
     /// Do not use colored output
     #[clap(short, long, default_value_t = false)]
     no_color: bool,
@@ -62,7 +66,13 @@ fn main() {
     let colored_output = !args.no_color ^ (args.cfg | args.callgraph);
 
     let mut decompiler = program.decompiler(args.verbose);
+
     let decompiled_code = decompiler.decompile(colored_output);
+
+    // Filter functions if a specific function name is given
+    if let Some(ref function_name) = args.function {
+        decompiler.filter_functions(function_name);
+    }
 
     if args.cfg {
         // Determine the full path for the output file
