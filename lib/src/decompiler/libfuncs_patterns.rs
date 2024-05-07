@@ -41,4 +41,7 @@ lazy_static! {
         Regex::new(r"storage_base_address_const<(?P<const>-?[0-9]+)>").unwrap(),
         Regex::new(r"(felt|u)_?(8|16|32|64|128|252)_const<(?P<const>-?[0-9]+)>").unwrap(),
     ];
+
+    // User defined function
+    pub static ref USER_DEFINED_FUNCTION_REGEX: Regex = Regex::new(r"(function_call|(\[[0-9]+\]))(::)?<user@(?P<function_id>.+)>").unwrap();
 }

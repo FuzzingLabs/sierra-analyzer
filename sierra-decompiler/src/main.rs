@@ -18,19 +18,27 @@ struct Args {
     sierra_file: PathBuf,
 
     /// Do not use colored output
-    #[clap(short, long, default_value = "false")]
+    #[clap(short, long, default_value_t = false)]
     no_color: bool,
 
-    /// Generate a CFG graph instead of normal output
-    #[clap(long, default_value = "false")]
+    /// Generate a CFG (Control Flow Graph) instead of normal output
+    #[clap(long, default_value_t = false)]
     cfg: bool,
 
     /// Output directory for the CFG file
     #[clap(long, default_value = "./output_cfg")]
     cfg_output: PathBuf,
 
+    /// Generate a Call Graph instead of normal output
+    #[clap(long, default_value_t = false)]
+    callgraph: bool,
+
+    /// Output directory for the Call Graph file
+    #[clap(long, default_value = "./output_callgraph")]
+    callgraph_output: PathBuf,
+
     /// Enable verbose decompiler output
-    #[clap(short, long, default_value = "false")]
+    #[clap(short, long, default_value_t = false)]
     verbose: bool,
 }
 
@@ -50,8 +58,8 @@ fn main() {
         .map_or_else(|| content.clone(), |prog_sierra| prog_sierra.to_string());
     let program = sierra_program::SierraProgram::new(program_string);
 
-    // Color output by default and if CFG is not enabled to avoid bugs in the SVG output
-    let colored_output = !args.no_color ^ args.cfg;
+    // Color output by default and if CFG or Callgraph is not enabled to avoid bugs in the SVG output
+    let colored_output = !args.no_color ^ (args.cfg | args.callgraph);
 
     let mut decompiler = program.decompiler(args.verbose);
     let decompiled_code = decompiler.decompile(colored_output);
@@ -81,6 +89,31 @@ fn main() {
         let cfg_graph = decompiler.generate_cfg();
         save_svg_graph_to_file(full_path.to_str().unwrap(), cfg_graph)
             .expect("Failed to save CFG to SVG");
+    } else if args.callgraph {
+        // Determine the full path for the output file
+        let file_stem = args
+            .sierra_file
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+        let svg_filename = format!("{}_callgraph.svg", file_stem);
+        let full_path = args.callgraph_output.join(svg_filename);
+
+        // Create the output directory if it doesn't exist
+        if let Err(e) = fs::create_dir_all(&args.callgraph_output) {
+            eprintln!(
+                "Failed to create directory '{}': {}",
+                args.callgraph_output.display(),
+                e
+            );
+            return;
+        }
+
+        // Generate Callgraph and save to SVG
+        let callgraph_graph = decompiler.generate_callgraph();
+        save_svg_graph_to_file(full_path.to_str().unwrap(), callgraph_graph)
+            .expect("Failed to save Callgraph to SVG");
     } else {
         println!("{}", decompiled_code);
     }

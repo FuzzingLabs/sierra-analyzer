@@ -26,3 +26,30 @@ fn test_dogtgraph_cfg_output() {
 
     assert_eq!(cfg_dotgraph, expected_output);
 }
+
+#[test]
+fn test_dogtgraph_callgraph_output() {
+    // Read file content
+    let content = include_str!("../../examples/sierra/fib.sierra").to_string();
+
+    // Init a new SierraProgram with the .sierra file content
+    let program = SierraProgram::new(content);
+
+    // Don't use the verbose output
+    let verbose_output = false;
+
+    // Decompile the Sierra program
+    let mut decompiler = program.decompiler(verbose_output);
+
+    // Decompile the sierra program with a colorless output
+    let use_color = false;
+    decompiler.decompile(use_color);
+
+    // Generate Callgraph dotgraph
+    let callgraph_dotgraph = decompiler.generate_callgraph();
+
+    // Expected dotgraph
+    let expected_output = "strict digraph G {\n    graph [fontname=\"Helvetica,Arial,sans-serif\", fontsize=20, layout=\"dot\", rankdir=\"LR\", newrank=true];\n    node [style=\"filled\", shape=\"rect, plaintext\", pencolor=\"#00000044\", fontname=\"Helvetica,Arial,sans-serif\"];\n    edge [arrowsize=0.5, fontname=\"Helvetica,Arial,sans-serif\", labeldistance=3, labelfontcolor=\"#00000080\", penwidth=2];\n   \"examples::fib::fib\" [shape=\"rectangle\", fillcolor=\"#95D2B3\", style=\"filled\"];\n   \"disable_ap_tracking\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"disable_ap_tracking\";\n   \"dup<felt252>\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"dup<felt252>\";\n   \"felt252_is_zero\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"felt252_is_zero\";\n   \"branch_align\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"branch_align\";\n   \"drop<felt252>\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"drop<felt252>\";\n   \"drop<felt252>\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"drop<felt252>\";\n   \"store_temp<felt252>\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"store_temp<felt252>\";\n   \"branch_align\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"branch_align\";\n   \"drop<NonZero<felt252>>\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"drop<NonZero<felt252>>\";\n   \"dup<felt252>\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"dup<felt252>\";\n   \"felt252_add\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"felt252_add\";\n   \"const_as_immediate<Const<felt252, 1>>\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"const_as_immediate<Const<felt252, 1>>\";\n   \"felt252_sub\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"felt252_sub\";\n   \"store_temp<felt252>\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"store_temp<felt252>\";\n   \"store_temp<felt252>\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"store_temp<felt252>\";\n   \"store_temp<felt252>\" [shape=\"rectangle\", fillcolor=\"#E86356\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"store_temp<felt252>\";\n   \"examples::fib::fib\" [shape=\"rectangle\", fillcolor=\"#95D2B3\", style=\"filled\"];\n   \"examples::fib::fib\" -> \"examples::fib::fib\";\n}\n";
+
+    assert_eq!(callgraph_dotgraph, expected_output);
+}
