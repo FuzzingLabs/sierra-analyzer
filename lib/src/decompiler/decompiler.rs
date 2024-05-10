@@ -12,6 +12,7 @@ use crate::decompiler::cfg::EdgeType;
 use crate::decompiler::function::Function;
 use crate::decompiler::function::SierraStatement;
 use crate::decompiler::libfuncs_patterns::IS_ZERO_REGEX;
+use crate::parse_element_name;
 use crate::sierra_program::SierraProgram;
 
 /// A struct that represents a decompiler for a Sierra program
@@ -215,8 +216,8 @@ impl<'a> Decompiler<'a> {
         &self,
         function_declaration: &GenFunction<StatementIdx>,
     ) -> String {
-        // Get the debug name of the function's ID and format it in bold
-        let id = format!("{}", function_declaration.id.debug_name.as_ref().unwrap()).bold();
+        // Parse the function name
+        let id = format!("{}", parse_element_name!(function_declaration.id)).bold();
 
         // Get the function signature, which consists of the parameter types and return types
         let signature = &function_declaration.signature;

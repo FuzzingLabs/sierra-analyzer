@@ -2,11 +2,11 @@
 /// using the debug_name if present or falling back to the ID field
 #[macro_export]
 macro_rules! parse_element_name {
-    ($libfunc_id:expr) => {
-        if let Some(debug_name) = &$libfunc_id.debug_name {
+    ($element_id:expr) => {
+        if let Some(debug_name) = &$element_id.debug_name {
             debug_name.to_string()
         } else {
-            $libfunc_id.id.to_string()
+            $element_id.id.to_string()
         }
     };
 }
