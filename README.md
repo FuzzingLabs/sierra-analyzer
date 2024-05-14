@@ -43,10 +43,29 @@ cargo run ./examples/sierra/fib_array.sierra --cfg
 
 # Output the Control-Flow Graph to a custom folder (default is ./output_cfg)
 cargo run ./tests/sierra_files/fib_array.sierra --cfg --cfg-output ./test 
+
+# Get the CFG of a specific function
+cargo run ./examples/sierra/fib_unary.sierra --cfg --function 'examples::fib_unary::fib'
 ```
 
 <p align="center">
 	<img src="/doc/images/cfg-output.png" height="400px"/>
+</p>
+
+#### Print the contract's Callgraph
+
+```
+cargo run ./examples/sierra/fib_array.sierra --callgraph
+
+# Output the Callgraph to a custom folder (default is ./output_callgraph)
+cargo run ./tests/sierra_files/fib_array.sierra --callgraph --callgraph-output ./test 
+
+# Get the Callgraph of a specific function
+cargo run ./examples/sierra/fib_unary.sierra --callgraph --function 'examples::fib_unary::fib'
+```
+
+<p align="center">
+	<img src="/doc/images/callgraph-output.png" height="400px"/>
 </p>
 
 #### Use it as a library 
@@ -59,5 +78,6 @@ Examples can be found [here](/lib/examples/).
 
 - [x] Decompiler
 - [x] Control-Flow Graph
-- [ ] Call Graph
+- [x] Call Graph
+- [ ] Symbolic execution
 - [ ] Security detectors

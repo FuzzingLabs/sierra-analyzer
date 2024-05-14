@@ -1,6 +1,7 @@
 use colored::*;
 
 use cairo_lang_sierra::program::GenFunction;
+use cairo_lang_sierra::program::GenStatement;
 use cairo_lang_sierra::program::GenericArg;
 use cairo_lang_sierra::program::LibfuncDeclaration;
 use cairo_lang_sierra::program::StatementIdx;
@@ -11,7 +12,8 @@ use crate::decompiler::cfg::BasicBlock;
 use crate::decompiler::cfg::EdgeType;
 use crate::decompiler::function::Function;
 use crate::decompiler::function::SierraStatement;
-use crate::decompiler::libfuncs_patterns::IS_ZERO_REGEX;
+use crate::decompiler::libfuncs_patterns::{IS_ZERO_REGEX, USER_DEFINED_FUNCTION_REGEX};
+use crate::parse_element_name;
 use crate::sierra_program::SierraProgram;
 
 /// A struct that represents a decompiler for a Sierra program
@@ -538,6 +540,113 @@ impl<'a> Decompiler<'a> {
             bold_brace_open,
             "\t".repeat(indentation + 1) // Adjust for nested content indentation
         )
+    }
+
+    /// Filters the functions stored in the decompiler, retaining only the one that match
+    /// the given function name
+    pub fn filter_functions(&mut self, function_name: &str) {
+        // Retain only those functions whose prototype contains the specified function name
+        self.functions.retain(|function| {
+            if let Some(proto) = &function.prototype {
+                proto.contains(function_name)
+            } else {
+                false
+            }
+        });
+    }
+
+    /// Generate a callgraph representation in DOT Format
+    pub fn generate_callgraph(&mut self) -> String {
+        let mut dot = String::from("strict digraph G {\n");
+
+        // Global Graph configuration
+        dot.push_str(&format!(
+            "    graph [fontname=\"{}\", fontsize={}, layout=\"{}\", rankdir=\"{}\", newrank={}];\n",
+            GraphConfig::CALLGRAPH_GRAPH_ATTR_FONTNAME,
+            GraphConfig::CALLGRAPH_GRAPH_ATTR_FONTSIZE,
+            GraphConfig::CALLGRAPH_GRAPH_ATTR_LAYOUT,
+            GraphConfig::CALLGRAPH_GRAPH_ATTR_RANKDIR,
+            GraphConfig::CALLGRAPH_GRAPH_ATTR_NEWRANK,
+        ));
+
+        // Node attributes
+        dot.push_str(&format!(
+            "    node [style=\"{}\", shape=\"{}\", pencolor=\"{}\", margin=\"0.5,0.1\", fontname=\"{}\"];\n",
+            GraphConfig::CALLGRAPH_NODE_ATTR_STYLE,
+            GraphConfig::CALLGRAPH_NODE_ATTR_SHAPE,
+            GraphConfig::CALLGRAPH_NODE_ATTR_PENCOLOR,
+            GraphConfig::CALLGRAPH_NODE_ATTR_FONTNAME,
+        ));
+
+        // Edge attributes
+        dot.push_str(&format!(
+            "    edge [arrowsize={}, fontname=\"{}\", labeldistance={}, labelfontcolor=\"{}\", penwidth={}];\n",
+            GraphConfig::CALLGRAPH_EDGE_ATTR_ARROWSIZE,
+            GraphConfig::CALLGRAPH_EDGE_ATTR_FONTNAME,
+            GraphConfig::CALLGRAPH_EDGE_ATTR_LABELDISTANCE,
+            GraphConfig::CALLGRAPH_EDGE_ATTR_LABELFONTCOLOR,
+            GraphConfig::CALLGRAPH_EDGE_ATTR_PENWIDTH,
+        ));
+
+        for function in &self.functions {
+            let function_name = format!("{}", parse_element_name!(function.function.id));
+
+            // Constructing the node entry for DOT format
+            dot.push_str(&format!(
+                "   \"{}\" [shape=\"rectangle, fill\", fillcolor=\"{}\", style=\"filled\"];\n",
+                function_name,
+                GraphConfig::CALLGRAPH_USER_DEFINED_FUNCTIONS_COLOR,
+            ));
+
+            for statement in &function.statements {
+                match &statement.statement {
+                    GenStatement::Invocation(statement) => {
+                        let called_function = parse_element_name!(&statement.libfunc_id);
+
+                        // Check if the called function matches the user-defined function regex
+                        if let Some(captures) =
+                            USER_DEFINED_FUNCTION_REGEX.captures(&called_function)
+                        {
+                            if let Some(matched_group) = captures.name("function_id") {
+                                let called_function_name = format!("{}", matched_group.as_str());
+
+                                // Create the node in the DOT format and append it to the dot string
+                                dot.push_str(&format!(
+                                    "   \"{}\" [shape=\"rectangle\", fillcolor=\"{}\", style=\"filled\"];\n",
+                                    called_function_name,
+                                    GraphConfig::CALLGRAPH_USER_DEFINED_FUNCTIONS_COLOR
+                                ));
+
+                                // Add edge
+                                dot.push_str(&format!(
+                                    "   \"{}\" -> \"{}\";\n",
+                                    function_name, called_function_name
+                                ));
+                            }
+                        } else {
+                            let called_function_name = format!("{}\t\t", called_function.as_str());
+                            // Create the node in the DOT format and append it to the dot string
+                            dot.push_str(&format!(
+                                    "   \"{}\" [shape=\"rectangle\", fillcolor=\"{}\", style=\"filled\"];\n",
+                                    called_function_name,
+                                    GraphConfig::CALLGRAPH_LIBFUNCS_COLOR
+                                ));
+
+                            // Add edge
+                            dot.push_str(&format!(
+                                "   \"{}\" -> \"{}\";\n",
+                                function_name, called_function_name
+                            ));
+                        }
+                    }
+
+                    _ => {}
+                }
+            }
+        }
+
+        dot.push_str("}\n");
+        dot
     }
 
     /// Generates a control flow graph representation (CFG) in DOT format

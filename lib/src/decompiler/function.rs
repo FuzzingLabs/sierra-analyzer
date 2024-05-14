@@ -362,7 +362,7 @@ impl SierraStatement {
 #[allow(dead_code)]
 pub struct Function<'a> {
     /// The function's `GenFunction` representation
-    function: &'a GenFunction<StatementIdx>,
+    pub function: &'a GenFunction<StatementIdx>,
     // Function start offset
     pub start_offset: Option<u32>,
     // Function end offset
