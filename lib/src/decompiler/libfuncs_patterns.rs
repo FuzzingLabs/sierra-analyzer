@@ -41,4 +41,8 @@ lazy_static! {
         Regex::new(r"storage_base_address_const<(?P<const>-?[0-9]+)>").unwrap(),
         Regex::new(r"(felt|u)_?(8|16|32|64|128|252)_const<(?P<const>-?[0-9]+)>").unwrap(),
     ];
+
+    // Array declarations & mutations
+    pub static ref NEW_ARRAY_REGEX: Regex = Regex::new(r"array_new<(?P<array_type>.+)>").unwrap();
+    pub static ref ARRAY_APPEND_REGEX: Regex = Regex::new(r"array_append<(.+)>").unwrap();
 }

@@ -9,8 +9,9 @@ use cairo_lang_sierra::program::StatementIdx;
 use crate::decompiler::cfg::ControlFlowGraph;
 use crate::decompiler::cfg::SierraConditionalBranch;
 use crate::decompiler::libfuncs_patterns::{
-    ADDITION_REGEX, CONST_REGEXES, DROP_REGEX, DUP_REGEX, FUNCTION_CALL_REGEX,
-    MULTIPLICATION_REGEX, STORE_TEMP_REGEX, SUBSTRACTION_REGEX, VARIABLE_ASSIGNMENT_REGEX,
+    ADDITION_REGEX, ARRAY_APPEND_REGEX, CONST_REGEXES, DROP_REGEX, DUP_REGEX, FUNCTION_CALL_REGEX,
+    MULTIPLICATION_REGEX, NEW_ARRAY_REGEX, STORE_TEMP_REGEX, SUBSTRACTION_REGEX,
+    VARIABLE_ASSIGNMENT_REGEX,
 };
 use crate::decompiler::utils::decode_hex_bigint;
 use crate::extract_parameters;
@@ -185,6 +186,35 @@ impl SierraStatement {
                 let assigned_variable = assigned_variables_str.to_string();
                 return format!("{} = {}", assigned_variable, old_var);
             }
+        }
+
+        // Handling array declarations
+        // <variable> = Array<<array type>>::new()
+        if let Some(captures) = NEW_ARRAY_REGEX.captures(libfunc_id_str) {
+            if let Some(array_type) = captures.get(1) {
+                let formatted_array_type = array_type.as_str();
+                return format!(
+                    "{} = {}<{}>::{}()",
+                    assigned_variables_str,
+                    "Array".blue(),
+                    formatted_array_type,
+                    "new".blue()
+                );
+            }
+        }
+
+        // Handling array append operations
+        // <variable> = <array>.append(<variable>)
+        if ARRAY_APPEND_REGEX.is_match(libfunc_id_str) {
+            let array_name = parameters[0].clone();
+            let appent_value_name = parameters[1].clone();
+            return format!(
+                "{} = {}.{}({})",
+                assigned_variables_str,
+                array_name,
+                "append".blue(),
+                appent_value_name
+            );
         }
 
         // Handling const declarations
