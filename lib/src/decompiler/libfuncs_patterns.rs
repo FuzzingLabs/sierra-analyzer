@@ -44,4 +44,8 @@ lazy_static! {
 
     // User defined function
     pub static ref USER_DEFINED_FUNCTION_REGEX: Regex = Regex::new(r"(function_call|(\[[0-9]+\]))(::)?<user@(?P<function_id>.+)>").unwrap();
+
+    // Array declarations & mutations
+    pub static ref NEW_ARRAY_REGEX: Regex = Regex::new(r"array_new<(?P<array_type>.+)>").unwrap();
+    pub static ref ARRAY_APPEND_REGEX: Regex = Regex::new(r"array_append<(.+)>").unwrap();
 }
