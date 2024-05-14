@@ -95,3 +95,50 @@ func examples::fib::fib (v0: felt252, v1: felt252, v2: felt252) -> (felt252) {
 }"#;
     assert_eq!(decompiler_output, expected_output);
 }
+
+#[test]
+fn test_decompiler_array_output() {
+    // Read file content
+    let content = include_str!("../../examples/sierra/fib_gas.sierra").to_string();
+
+    // Init a new SierraProgram with the .sierra file content
+    let program = SierraProgram::new(content);
+
+    // Don't Use the verbose output
+    let verbose_output = false;
+
+    // Decompile the Sierra program
+    let mut decompiler = program.decompiler(verbose_output);
+
+    // Decompile the sierra program with a colorless output
+    let use_color = false;
+    let decompiler_output = decompiler.decompile(use_color);
+
+    let expected_output = r#"// Function 1
+func examples::fib::fib (v0: RangeCheck, v1: GasBuiltin, v2: felt252, v3: felt252, v4: felt252) -> (RangeCheck, GasBuiltin, core::panics::PanicResult::<(core::felt252)>) {
+	if (withdraw_gas(v0, v1) == 0) {		
+		v20 = Array<felt252>::new()
+		v21 = 375233589013918064796019 // "Out of gas"
+		v22 = v20.append(v21)
+		v23 = struct_construct<core::panics::Panic>()
+		v24 = struct_construct<Tuple<core::panics::Panic, Array<felt252>>>(v23, v22)
+		v25 = enum_init<core::panics::PanicResult::<(core::felt252)>, 1>(v24)
+		return (v7, v8, v25)
+	} else {	
+		v9 = v4
+		if (v9 == 0) {			
+			v13 = v3
+			v14 = v2 + v13
+			v15 = 1
+			v16 = v4 - v15
+			v17, v18, v19 = user@examples::fib::fib(v5, v6, v3, v14, v16)
+			return (v17, v18, v19)
+		} else {		
+			v11 = struct_construct<Tuple<felt252>>(v2)
+			v12 = enum_init<core::panics::PanicResult::<(core::felt252)>, 0>(v11)
+			return (v5, v6, v12)
+		}
+	}
+}"#;
+    assert_eq!(decompiler_output, expected_output);
+}
