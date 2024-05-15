@@ -27,6 +27,8 @@ pub struct Decompiler<'a> {
     printed_blocks: Vec<BasicBlock>,
     /// The function we are currently working on
     current_function: Option<Function<'a>>,
+    /// Names of all declared types (in order)
+    declared_types_names: Vec<String>,
     /// Enable / disable the verbose output
     /// Some statements are not included in the regular output to improve the readability
     verbose: bool,
@@ -40,6 +42,7 @@ impl<'a> Decompiler<'a> {
             indentation: 1,
             printed_blocks: Vec::new(),
             current_function: None,
+            declared_types_names: Vec::new(),
             verbose: verbose,
         }
     }
@@ -75,7 +78,7 @@ impl<'a> Decompiler<'a> {
     }
 
     /// Decompiles the type declarations
-    fn decompile_types(&self) -> String {
+    fn decompile_types(&mut self) -> String {
         self.sierra_program
             .program()
             .type_declarations
@@ -125,7 +128,7 @@ impl<'a> Decompiler<'a> {
     }
 
     /// Decompiles a single type declaration
-    fn decompile_type(&self, type_declaration: &TypeDeclaration) -> String {
+    fn decompile_type(&mut self, type_declaration: &TypeDeclaration) -> String {
         // Get the debug name of the type's ID
         let id = format!(
             "{}",
@@ -134,10 +137,9 @@ impl<'a> Decompiler<'a> {
                 .debug_name
                 .as_ref()
                 .unwrap_or(&"".into())
-        )
-        .yellow();
+        );
 
-        // Get the long ID of the type, which consists of the generic ID and any generic arguments
+        // Get the long ID of the type
         let long_id = &type_declaration.long_id;
         let generic_id = long_id.generic_id.to_string();
 
@@ -151,8 +153,14 @@ impl<'a> Decompiler<'a> {
             generic_id.clone()
         };
 
-        // Retrieve the declared type information for the type, if it exists
-        // We don't use it in the decompiler output because it might not be readable enough
+        // Conditionally format id and long_id_repr
+        let (id_colored, long_id_repr_colored) = if id.is_empty() {
+            (id.yellow(), long_id_repr.yellow().to_string())
+        } else {
+            (id.white(), long_id_repr.clone())
+        };
+
+        // Retrieve declared type information
         let _declared_type_info_str = type_declaration.declared_type_info.as_ref().map_or_else(
             String::new,
             |declared_type_info| {
@@ -167,11 +175,26 @@ impl<'a> Decompiler<'a> {
             },
         );
 
-        // Conditionally append long_id_repr in parentheses if it is different from id
-        let type_definition = if *long_id_repr != *id {
-            format!("type {} ({})", id, long_id_repr)
-        } else {
-            format!("type {}", id)
+        // Construct the type definition string
+        // If the id is not empty, format the type definition with the id and optionally the long ID representation
+        let type_definition = if !id.is_empty() {
+            let id_string = id.clone().to_string();
+            self.declared_types_names.push(id_string.clone());
+            format!(
+                "type {}{}",
+                id.yellow(),
+                if long_id_repr_colored != id_colored.to_string() {
+                    format!(" ({})", long_id_repr_colored)
+                } else {
+                    "".to_string()
+                }
+            )
+        }
+        // If the id is empty, format the type definition with only the long ID representation
+        else {
+            let long_id_repr_string = long_id_repr.clone().to_string();
+            self.declared_types_names.push(long_id_repr_string.clone());
+            format!("type {}{}", long_id_repr_colored, "")
         };
 
         type_definition
