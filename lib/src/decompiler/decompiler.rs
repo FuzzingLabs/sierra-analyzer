@@ -29,6 +29,8 @@ pub struct Decompiler<'a> {
     current_function: Option<Function<'a>>,
     /// Names of all declared types (in order)
     declared_types_names: Vec<String>,
+    /// Names of all declared libfuncs (in order)
+    declared_libfuncs_names: Vec<String>,
     /// Enable / disable the verbose output
     /// Some statements are not included in the regular output to improve the readability
     verbose: bool,
@@ -43,6 +45,7 @@ impl<'a> Decompiler<'a> {
             printed_blocks: Vec::new(),
             current_function: None,
             declared_types_names: Vec::new(),
+            declared_libfuncs_names: Vec::new(),
             verbose: verbose,
         }
     }
@@ -89,7 +92,7 @@ impl<'a> Decompiler<'a> {
     }
 
     /// Decompiles the libfunc declarations
-    fn decompile_libfuncs(&self) -> String {
+    fn decompile_libfuncs(&mut self) -> String {
         self.sierra_program
             .program()
             .libfunc_declarations
@@ -200,8 +203,8 @@ impl<'a> Decompiler<'a> {
         type_definition
     }
 
-    /// Decompile an single libfunc
-    fn decompile_libfunc(&self, libfunc_declaration: &LibfuncDeclaration) -> String {
+    /// Decompiles an individual libfunc declaration
+    fn decompile_libfunc(&mut self, libfunc_declaration: &LibfuncDeclaration) -> String {
         // Get the debug name of the libfunc's ID
         let id = format!(
             "{}",
@@ -210,10 +213,25 @@ impl<'a> Decompiler<'a> {
                 .debug_name
                 .as_ref()
                 .unwrap_or(&"".into())
-        )
-        .blue();
+        );
 
-        format!("libfunc {}", id)
+        // Get the long ID of the libfunc
+        let long_id = &libfunc_declaration.long_id;
+
+        // Parse kgeneric arguments
+        let _arguments = self.parse_arguments(&libfunc_declaration.long_id.generic_args);
+
+        // Construct the libfunc definition string
+        let libfunc_definition = if id.is_empty() {
+            long_id.to_string() // Use long_id if id is empty
+        } else {
+            id.to_string()
+        };
+
+        self.declared_libfuncs_names
+            .push(libfunc_definition.clone()); // Push non-colored version to declared_libfuncs_names
+
+        format!("libfunc {}", libfunc_definition.blue())
     }
 
     /// Decompiles the functions prototypes
