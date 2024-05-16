@@ -21,7 +21,7 @@ impl<'a> Detector for StringsDetector<'a> {
     /// Returns the name of the detector
     #[inline]
     fn name(&self) -> &'static str {
-        "StringsDetector"
+        "Strings"
     }
 
     /// Returns the description of the detector
@@ -37,7 +37,7 @@ impl<'a> Detector for StringsDetector<'a> {
     }
 
     /// Detects strings in the decompiled Sierra code and returns them as a single string
-    fn detect(&self) -> String {
+    fn detect(&mut self) -> String {
         // A vector to store the extracted strings
         let mut extracted_strings: Vec<String> = vec![];
 

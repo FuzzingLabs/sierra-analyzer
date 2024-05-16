@@ -195,7 +195,7 @@ impl<'a> Decompiler<'a> {
     }
 
     /// Decompiles the functions prototypes
-    fn decompile_functions_prototypes(&mut self) -> String {
+    pub fn decompile_functions_prototypes(&mut self) -> String {
         let prototypes: Vec<String> = self
             .sierra_program
             .program()
