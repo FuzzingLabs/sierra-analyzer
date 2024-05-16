@@ -1,7 +1,7 @@
 use crate::decompiler::decompiler::Decompiler;
 use crate::decompiler::libfuncs_patterns::CONST_REGEXES;
 use crate::decompiler::utils::decode_hex_bigint;
-use crate::detectors::detector::Detector;
+use crate::detectors::detector::{Detector, DetectorType};
 use crate::parse_element_name;
 use cairo_lang_sierra::program::GenStatement;
 use num_bigint::BigInt;
@@ -18,6 +18,24 @@ impl<'a> StringsDetector<'a> {
 }
 
 impl<'a> Detector for StringsDetector<'a> {
+    /// Returns the name of the detector
+    #[inline]
+    fn name(&self) -> &'static str {
+        "StringsDetector"
+    }
+
+    /// Returns the description of the detector
+    #[inline]
+    fn description(&self) -> &'static str {
+        "Detects strings in the decompiled Sierra code."
+    }
+
+    /// Returns the type of the detector
+    #[inline]
+    fn detector_type(&self) -> DetectorType {
+        DetectorType::INFORMATIONAL
+    }
+
     /// Detects strings in the decompiled Sierra code and returns them as a single string
     fn detect(&self) -> String {
         // A vector to store the extracted strings
