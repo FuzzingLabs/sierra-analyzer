@@ -269,12 +269,15 @@ impl<'a> Decompiler<'a> {
                 param_type
                     .debug_name
                     .as_ref()
-                    .unwrap_or(&format!("[{}]", param_type.id).into())
+                    // Replace id with the corresponding type name
+                    .unwrap_or(
+                        &format!("{}", self.declared_types_names[param_type.id as usize]).into(),
+                    )
                     .to_string()
             })
             .collect();
 
-        // Create a list of strings representing the function parameters,
+        // Create a list of strings representing the function parameters,cargo fmt
         // with each string formatted as "<param_name>: <param_type>"
         let param_strings: Vec<String> = param_types
             .iter()
@@ -302,7 +305,8 @@ impl<'a> Decompiler<'a> {
                 let ret_type_string = if let Some(debug_name) = &ret_type.debug_name {
                     debug_name.to_string()
                 } else {
-                    format!("[{}]", ret_type.id)
+                    // Replace id with the corresponding type name
+                    format!("[{}]", self.declared_types_names[ret_type.id as usize])
                 };
                 let ret_type_colored = ret_type_string.purple(); // Color ret_type_string in purple
                 ret_type_colored.to_string()
