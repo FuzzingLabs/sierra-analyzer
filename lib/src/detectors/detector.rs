@@ -5,7 +5,7 @@ pub enum DetectorType {
 }
 
 /// Detector marker trait
-pub trait Detector {
+pub trait Detector: Send + Sync {
     fn name(&self) -> &'static str;
     fn description(&self) -> &'static str;
     fn detector_type(&self) -> DetectorType;

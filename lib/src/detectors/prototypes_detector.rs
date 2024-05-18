@@ -1,7 +1,5 @@
 use crate::decompiler::decompiler::Decompiler;
 use crate::detectors::detector::{Detector, DetectorType};
-use cairo_lang_sierra::program::GenStatement;
-use num_bigint::BigInt;
 
 pub struct PrototypesDetector<'a> {
     decompiler: &'a mut Decompiler<'a>,
