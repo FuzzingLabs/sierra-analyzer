@@ -3,21 +3,20 @@ use crate::decompiler::libfuncs_patterns::CONST_REGEXES;
 use crate::decompiler::utils::decode_hex_bigint;
 use crate::detectors::detector::{Detector, DetectorType};
 use crate::parse_element_name;
+
 use cairo_lang_sierra::program::GenStatement;
 use num_bigint::BigInt;
 
-pub struct StringsDetector<'a> {
-    decompiler: &'a mut Decompiler<'a>,
-}
+pub struct StringsDetector;
 
-impl<'a> StringsDetector<'a> {
+impl StringsDetector {
     /// Creates a new `StringsDetector` instance
-    pub fn new(decompiler: &'a mut Decompiler<'a>) -> Self {
-        Self { decompiler }
+    pub fn new() -> Self {
+        Self
     }
 }
 
-impl<'a> Detector for StringsDetector<'a> {
+impl Detector for StringsDetector {
     /// Returns the name of the detector
     #[inline]
     fn name(&self) -> &'static str {
@@ -37,12 +36,12 @@ impl<'a> Detector for StringsDetector<'a> {
     }
 
     /// Detects strings in the decompiled Sierra code and returns them as a single string
-    fn detect(&mut self) -> String {
+    fn detect(&mut self, decompiler: &mut Decompiler) -> String {
         // A vector to store the extracted strings
         let mut extracted_strings: Vec<String> = vec![];
 
         // Iterate over all the program statements
-        for function in &self.decompiler.functions {
+        for function in &decompiler.functions {
             for statement in &function.statements {
                 let statement = &statement.statement;
                 match statement {

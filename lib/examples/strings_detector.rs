@@ -16,9 +16,9 @@ fn main() {
     let use_color = true;
     decompiler.decompile(use_color);
 
-    // Init the strings detector on the decompiler
-    let mut detector = StringsDetector::new(&mut decompiler);
+    // Init the strings detector
+    let mut detector = StringsDetector::new();
 
     // Print the detected strings
-    println!("{}", detector.detect());
+    println!("{}", detector.detect(&mut decompiler));
 }

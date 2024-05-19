@@ -1,18 +1,16 @@
 use crate::decompiler::decompiler::Decompiler;
 use crate::detectors::detector::{Detector, DetectorType};
 
-pub struct PrototypesDetector<'a> {
-    decompiler: &'a mut Decompiler<'a>,
-}
+pub struct PrototypesDetector;
 
-impl<'a> PrototypesDetector<'a> {
+impl PrototypesDetector {
     /// Creates a new `PrototypesDetector` instance
-    pub fn new(decompiler: &'a mut Decompiler<'a>) -> Self {
-        Self { decompiler }
+    pub fn new() -> Self {
+        Self
     }
 }
 
-impl<'a> Detector for PrototypesDetector<'a> {
+impl Detector for PrototypesDetector {
     /// Returns the name of the detector
     #[inline]
     fn name(&self) -> &'static str {
@@ -32,8 +30,8 @@ impl<'a> Detector for PrototypesDetector<'a> {
     }
 
     /// Returns all the functions prototypes
-    fn detect(&mut self) -> String {
-        let result = self.decompiler.decompile_functions_prototypes();
+    fn detect(&mut self, decompiler: &mut Decompiler) -> String {
+        let result = decompiler.decompile_functions_prototypes();
         result
     }
 }
