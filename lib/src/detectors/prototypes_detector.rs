@@ -1,6 +1,7 @@
 use crate::decompiler::decompiler::Decompiler;
 use crate::detectors::detector::{Detector, DetectorType};
 
+#[derive(Debug)]
 pub struct PrototypesDetector;
 
 impl PrototypesDetector {

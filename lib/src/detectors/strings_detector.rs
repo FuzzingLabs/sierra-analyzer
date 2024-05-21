@@ -7,6 +7,7 @@ use crate::parse_element_name;
 use cairo_lang_sierra::program::GenStatement;
 use num_bigint::BigInt;
 
+#[derive(Debug)]
 pub struct StringsDetector;
 
 impl StringsDetector {
