@@ -7,6 +7,7 @@ use serde_json;
 use std::path::PathBuf;
 
 use cairo_lang_starknet_classes::contract_class::ContractClass;
+use sierra_analyzer_lib::detectors::get_detectors;
 use sierra_analyzer_lib::graph::graph::save_svg_graph_to_file;
 use sierra_analyzer_lib::sierra_program;
 
@@ -44,6 +45,10 @@ struct Args {
     /// Enable verbose decompiler output
     #[clap(short, long, default_value_t = false)]
     verbose: bool,
+
+    /// Run the detectors
+    #[clap(short, long)]
+    detectors: bool,
 }
 
 fn main() {
@@ -124,6 +129,27 @@ fn main() {
         let callgraph_graph = decompiler.generate_callgraph();
         save_svg_graph_to_file(full_path.to_str().unwrap(), callgraph_graph)
             .expect("Failed to save Callgraph to SVG");
+    } else if args.detectors {
+        let mut detectors = get_detectors();
+        for detector in &mut detectors {
+            let detector_name = detector.name();
+            let detector_result = detector.detect(&mut decompiler);
+
+            // Trim and indent the result with one tab
+            let indented_result: String = detector_result
+                .lines()
+                .map(|line| format!("\t{}", line))
+                .collect::<Vec<String>>()
+                .join("\n")
+                .trim_end()
+                .to_string();
+
+            // Check if the result is empty before printing
+            if !indented_result.is_empty() {
+                let output = format!("{}:\n{}", detector_name, indented_result);
+                println!("{}", output);
+            }
+        }
     } else {
         println!("{}", decompiled_code);
     }

@@ -12,6 +12,12 @@ impl PrototypesDetector {
 }
 
 impl Detector for PrototypesDetector {
+    /// Returns the id of the detector
+    #[inline]
+    fn id(&self) -> &'static str {
+        "prototypes"
+    }
+
     /// Returns the name of the detector
     #[inline]
     fn name(&self) -> &'static str {

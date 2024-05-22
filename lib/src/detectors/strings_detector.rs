@@ -18,6 +18,12 @@ impl StringsDetector {
 }
 
 impl Detector for StringsDetector {
+    /// Returns the id of the detector
+    #[inline]
+    fn id(&self) -> &'static str {
+        "strings"
+    }
+
     /// Returns the name of the detector
     #[inline]
     fn name(&self) -> &'static str {
