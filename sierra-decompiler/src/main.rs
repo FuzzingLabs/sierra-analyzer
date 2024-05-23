@@ -137,6 +137,11 @@ fn main() {
         for detector in detectors.iter_mut() {
             let result = detector.detect(&mut decompiler);
             if !result.trim().is_empty() {
+                // Each detector output is formatted like
+                //
+                // [Detector category] Detector name
+                //      - detector content
+                //      - ...
                 output.push_str(&format!(
                     "[{}] {}\n{}\n\n",
                     detector.detector_type().as_str(),
@@ -150,6 +155,7 @@ fn main() {
             }
         }
 
+        // Print the detectors result
         println!("{}", output.trim());
     } else {
         println!("{}", decompiled_code);

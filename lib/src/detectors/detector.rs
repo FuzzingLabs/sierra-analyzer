@@ -15,10 +15,10 @@ impl DetectorType {
     /// Used to print the detector type in the command-line tool
     pub fn as_str(&self) -> colored::ColoredString {
         match self {
-            // Informational detector types are green
+            // Informational detectors types are green
             DetectorType::INFORMATIONAL => "Informational".green(),
 
-            // Security
+            // Security detectors types are blue
             DetectorType::SECURITY => "Security".blue(),
         }
     }

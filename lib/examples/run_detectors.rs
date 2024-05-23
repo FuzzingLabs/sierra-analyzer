@@ -16,7 +16,33 @@ fn main() {
     decompiler.decompile(use_color);
 
     // Get the detectors list
-    let detectors = get_detectors();
+    let mut detectors = get_detectors();
 
-    println!("{:#?}", detectors);
+    // Init the output
+    let mut output = String::new();
+
+    // Run all the detectors
+    for detector in detectors.iter_mut() {
+        let result = detector.detect(&mut decompiler);
+        if !result.trim().is_empty() {
+            // Each detector output is formatted like
+            //
+            // [Detector category] Detector name
+            //      - detector content
+            //      - ...
+            output.push_str(&format!(
+                "[{}] {}\n{}\n\n",
+                detector.detector_type().as_str(),
+                detector.name(),
+                result
+                    .lines()
+                    .map(|line| format!("\t- {}", line))
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            ));
+        }
+    }
+
+    // Print the detectors result
+    println!("{}", output.trim());
 }
