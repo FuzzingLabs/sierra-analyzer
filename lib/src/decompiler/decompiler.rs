@@ -19,7 +19,7 @@ use crate::sierra_program::SierraProgram;
 /// A struct that represents a decompiler for a Sierra program
 pub struct Decompiler<'a> {
     /// A reference to the Sierra program to decompile
-    sierra_program: &'a SierraProgram,
+    pub sierra_program: &'a SierraProgram,
     /// Program functions
     pub functions: Vec<Function<'a>>,
     /// Current indentation
@@ -195,7 +195,7 @@ impl<'a> Decompiler<'a> {
     }
 
     /// Decompiles the functions prototypes
-    fn decompile_functions_prototypes(&mut self) -> String {
+    pub fn decompile_functions_prototypes(&mut self) -> String {
         let prototypes: Vec<String> = self
             .sierra_program
             .program()
