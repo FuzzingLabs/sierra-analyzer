@@ -6,6 +6,7 @@ use crate::parse_element_name;
 
 use cairo_lang_sierra::program::GenStatement;
 use num_bigint::BigInt;
+use std::collections::BTreeSet;
 
 #[derive(Debug)]
 pub struct StringsDetector;
@@ -42,10 +43,11 @@ impl Detector for StringsDetector {
         DetectorType::INFORMATIONAL
     }
 
-    /// Detects strings in the decompiled Sierra code and returns them as a single string
+    /// Detects unique strings in the decompiled Sierra code and returns them as a single string
     fn detect(&mut self, decompiler: &mut Decompiler) -> String {
-        // A vector to store the extracted strings
-        let mut extracted_strings: Vec<String> = vec![];
+        // A set to store the extracted unique strings
+        // We use a BTreeSet instead of HashSet to get an ordered result
+        let mut extracted_strings: BTreeSet<String> = BTreeSet::new();
 
         // Iterate over all the program statements
         for function in &decompiler.functions {
@@ -53,7 +55,8 @@ impl Detector for StringsDetector {
                 let statement = &statement.statement;
                 match statement {
                     GenStatement::Invocation(invocation) => {
-                        let libfunc_id_str = parse_element_name!(invocation.libfunc_id); // Parse the ID of the invoked library function
+                        // Parse the ID of the invoked library function
+                        let libfunc_id_str = parse_element_name!(invocation.libfunc_id);
 
                         // Iterate over the CONST_REGEXES and check if the input string matches
                         for regex in CONST_REGEXES.iter() {
@@ -69,8 +72,8 @@ impl Detector for StringsDetector {
                                     if let Some(decoded_string) =
                                         decode_hex_bigint(&const_value_bigint)
                                     {
-                                        // Add the decoded string to the vector
-                                        extracted_strings.push(decoded_string);
+                                        // Add the decoded string to the set
+                                        extracted_strings.insert(decoded_string);
                                     }
                                 }
                             }
@@ -82,7 +85,10 @@ impl Detector for StringsDetector {
         }
 
         // Convert the extracted strings to a single string, separated by newline characters
-        let result = extracted_strings.join("\n");
+        let result = extracted_strings
+            .into_iter()
+            .collect::<Vec<String>>()
+            .join("\n");
 
         result
     }
