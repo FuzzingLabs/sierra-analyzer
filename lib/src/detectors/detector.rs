@@ -1,11 +1,27 @@
-use crate::decompiler::decompiler::Decompiler;
+use colored::Colorize;
 use std::fmt::Debug;
+
+use crate::decompiler::decompiler::Decompiler;
 
 /// Possible types of a detector
 #[derive(Debug)]
 pub enum DetectorType {
     INFORMATIONAL,
     SECURITY,
+}
+
+impl DetectorType {
+    /// Returns the string representation of the DetectorType
+    /// Used to print the detector type in the command-line tool
+    pub fn as_str(&self) -> colored::ColoredString {
+        match self {
+            // Informational detector types are green
+            DetectorType::INFORMATIONAL => "Informational".green(),
+
+            // Security
+            DetectorType::SECURITY => "Security".blue(),
+        }
+    }
 }
 
 /// Detector marker trait

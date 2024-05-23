@@ -131,25 +131,26 @@ fn main() {
             .expect("Failed to save Callgraph to SVG");
     } else if args.detectors {
         let mut detectors = get_detectors();
-        for detector in &mut detectors {
-            let detector_name = detector.name();
-            let detector_result = detector.detect(&mut decompiler);
+        let mut output = String::new();
 
-            // Trim and indent the result with one tab
-            let indented_result: String = detector_result
-                .lines()
-                .map(|line| format!("\t{}", line))
-                .collect::<Vec<String>>()
-                .join("\n")
-                .trim_end()
-                .to_string();
-
-            // Check if the result is empty before printing
-            if !indented_result.is_empty() {
-                let output = format!("{}:\n{}", detector_name, indented_result);
-                println!("{}", output);
+        // Run all the detectors
+        for detector in detectors.iter_mut() {
+            let result = detector.detect(&mut decompiler);
+            if !result.trim().is_empty() {
+                output.push_str(&format!(
+                    "[{}] {}\n{}\n\n",
+                    detector.detector_type().as_str(),
+                    detector.name(),
+                    result
+                        .lines()
+                        .map(|line| format!("\t- {}", line))
+                        .collect::<Vec<String>>()
+                        .join("\n")
+                ));
             }
         }
+
+        println!("{}", output.trim());
     } else {
         println!("{}", decompiled_code);
     }
