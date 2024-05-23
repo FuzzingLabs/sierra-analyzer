@@ -68,6 +68,16 @@ cargo run ./examples/sierra/fib_unary.sierra --callgraph --function 'examples::f
 	<img src="/doc/images/callgraph-output.png" height="400px"/>
 </p>
 
+#### Run the detectors
+
+```
+cargo run ./examples/sierra/fib_array.sierra  -d
+```
+
+<p align="center">
+	<img src="/doc/images/detectors-output.png" height="130px"/>
+</p>
+
 #### Use it as a library 
 
 It is also possible to use the `sierra-analyzer-lib` library to decompile serialised or unserialised Sierra files.
@@ -79,5 +89,5 @@ Examples can be found [here](/lib/examples/).
 - [x] Decompiler
 - [x] Control-Flow Graph
 - [x] Call Graph
+- [X] Informational & Security detectors
 - [ ] Symbolic execution
-- [ ] Security detectors
