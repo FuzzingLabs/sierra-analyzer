@@ -1,5 +1,5 @@
 use sierra_analyzer_lib::detectors::detector::Detector;
-use sierra_analyzer_lib::detectors::prototypes_detector::PrototypesDetector;
+use sierra_analyzer_lib::detectors::functions_detector::FunctionsDetector;
 use sierra_analyzer_lib::detectors::statistics_detector::StatisticsDetector;
 use sierra_analyzer_lib::detectors::strings_detector::StringsDetector;
 use sierra_analyzer_lib::sierra_program::SierraProgram;
@@ -33,7 +33,7 @@ u32_sub Overflow"#;
 }
 
 #[test]
-fn test_prototypes_detector() {
+fn test_functions_detector() {
     // Read file content
     let content = include_str!("../../examples/sierra/fib_array.sierra").to_string();
 
@@ -48,16 +48,16 @@ fn test_prototypes_detector() {
     let use_color = false;
     decompiler.decompile(use_color);
 
-    // Init the prototypes detector
-    let mut detector = PrototypesDetector::new();
+    // Init the functions name detector
+    let mut detector = FunctionsDetector::new();
 
-    // functions prototypes
-    let detected_prototypes = detector.detect(&mut decompiler);
+    // functions names
+    let functions_names = detector.detect(&mut decompiler);
 
-    let expected_output = r#"func examples::fib_array::fib (v0: RangeCheck, v1: u32) -> (RangeCheck, core::panics::PanicResult::<((core::array::Array::<core::felt252>, core::felt252, core::integer::u32))>)
-func examples::fib_array::fib_inner (v0: RangeCheck, v1: u32, v2: Array<felt252>) -> (RangeCheck, core::panics::PanicResult::<(core::array::Array::<core::felt252>, ())>)"#;
+    let expected_output = r#"examples::fib_array::fib
+examples::fib_array::fib_inner"#;
 
-    assert_eq!(detected_prototypes, expected_output);
+    assert_eq!(functions_names, expected_output);
 }
 
 #[test]
@@ -76,10 +76,10 @@ fn test_statistics_detector() {
     let use_color = false;
     decompiler.decompile(use_color);
 
-    // Init the prototypes detector
+    // Init the statistics detector
     let mut detector = StatisticsDetector::new();
 
-    // functions prototypes
+    // Program statistics
     let statistics = detector.detect(&mut decompiler);
 
     let expected_output = r#"Libfuncs: 42

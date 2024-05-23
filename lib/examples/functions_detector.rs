@@ -1,5 +1,5 @@
 use sierra_analyzer_lib::detectors::detector::Detector;
-use sierra_analyzer_lib::detectors::prototypes_detector::PrototypesDetector;
+use sierra_analyzer_lib::detectors::functions_detector::FunctionsDetector;
 use sierra_analyzer_lib::sierra_program::SierraProgram;
 
 fn main() {
@@ -17,7 +17,7 @@ fn main() {
     decompiler.decompile(use_color);
 
     // Init the prototypes detector
-    let mut detector = PrototypesDetector::new();
+    let mut detector = FunctionsDetector::new();
 
     // Print the detected strings
     println!("{}", detector.detect(&mut decompiler));
