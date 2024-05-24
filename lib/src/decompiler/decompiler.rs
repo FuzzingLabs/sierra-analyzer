@@ -269,11 +269,15 @@ impl<'a> Decompiler<'a> {
                 param_type
                     .debug_name
                     .as_ref()
-                    // Replace id with the corresponding type name
-                    .unwrap_or(
-                        &format!("{}", self.declared_types_names[param_type.id as usize]).into(),
-                    )
-                    .to_string()
+                    .map(|name| name.to_string())
+                    .or_else(|| {
+                        // Attempt to get the name from self.declared_types_names, if it fails, format the id
+                        self.declared_types_names
+                            .get(param_type.id as usize)
+                            .map(|name| name.to_string())
+                            .or_else(|| Some(format!("[{}]", param_type.id)))
+                    })
+                    .unwrap()
             })
             .collect();
 
