@@ -530,7 +530,11 @@ impl<'a> Decompiler<'a> {
         // Append each statement to the string block
         for statement in &block.statements {
             // If condition
-            if let Some(conditional_branch) = statement.as_conditional_branch() {
+            if let Some(conditional_branch) =
+                // We pass it the declared libfunc names to allow the method to reconstruct function calls
+                // For remote contracts
+                statement.as_conditional_branch(self.declared_libfuncs_names.clone())
+            {
                 if block.edges.len() == 2 {
                     let function_name = &conditional_branch.function;
                     let function_arguments = conditional_branch.parameters.join(", ");
@@ -542,7 +546,11 @@ impl<'a> Decompiler<'a> {
                 }
             }
             // Unconditional jump
-            else if let Some(_unconditional_branch) = statement.as_conditional_branch() {
+            else if let Some(_unconditional_branch) =
+                // We pass it the declared libfunc names to allow the method to reconstruct function calls
+                // For remote contracts
+                statement.as_conditional_branch(self.declared_libfuncs_names.clone())
+            {
                 // Handle unconditional branch logic
                 todo!()
             }
@@ -550,7 +558,12 @@ impl<'a> Decompiler<'a> {
             else {
                 // Add the formatted statements to the block
                 // Some statements are only included in the verbose output
-                if let Some(formatted_statement) = statement.formatted_statement(self.verbose) {
+                //
+                // We pass it the declared libfunc names to allow the method to reconstruct function calls
+                // For remote contracts
+                if let Some(formatted_statement) = statement
+                    .formatted_statement(self.verbose, self.declared_libfuncs_names.clone())
+                {
                     decompiled_basic_block += &format!("{}{}\n", indentation, formatted_statement);
                 }
             }

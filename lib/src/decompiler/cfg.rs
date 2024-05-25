@@ -107,7 +107,7 @@ impl<'a> ControlFlowGraph {
             }
 
             // Handle conditional branches
-            if let Some(conditional_branch) = statement.as_conditional_branch() {
+            if let Some(conditional_branch) = statement.as_conditional_branch(vec![]) {
                 if let Some(edge_2_offset) = conditional_branch.edge_2_offset {
                     // Conditional branch with 2 edges (JNZ)
                     current_basic_block.edges.push(Edge {
