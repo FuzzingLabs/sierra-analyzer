@@ -13,6 +13,7 @@ use crate::decompiler::function::Function;
 use crate::decompiler::function::SierraStatement;
 use crate::decompiler::libfuncs_patterns::IS_ZERO_REGEX;
 use crate::parse_element_name;
+use crate::parse_element_name_with_fallback;
 use crate::sierra_program::SierraProgram;
 
 /// A struct that represents a decompiler for a Sierra program
@@ -266,18 +267,9 @@ impl<'a> Decompiler<'a> {
             .param_types
             .iter()
             .map(|param_type| {
-                param_type
-                    .debug_name
-                    .as_ref()
-                    .map(|name| name.to_string())
-                    .or_else(|| {
-                        // Attempt to get the name from self.declared_types_names, if it fails, format the id
-                        self.declared_types_names
-                            .get(param_type.id as usize)
-                            .map(|name| name.to_string())
-                            .or_else(|| Some(format!("[{}]", param_type.id)))
-                    })
-                    .unwrap()
+                // We use `parse_element_name_with_fallback` and not `parse_element_name` because
+                // we try to match the type id with it's corresponding name if it's a remote contract
+                parse_element_name_with_fallback!(param_type, self.declared_types_names)
             })
             .collect();
 

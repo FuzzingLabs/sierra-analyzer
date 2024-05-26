@@ -15,6 +15,7 @@ use crate::decompiler::libfuncs_patterns::{
 use crate::decompiler::utils::decode_hex_bigint;
 use crate::extract_parameters;
 use crate::parse_element_name;
+use crate::parse_element_name_with_fallback;
 
 /// A struct representing a statement
 #[derive(Debug, Clone)]
@@ -71,21 +72,12 @@ impl SierraStatement {
             // Invocation statements
             GenStatement::Invocation(invocation) => {
                 // Try to get the debug name of the libfunc_id
-                let libfunc_id = invocation
-                    .libfunc_id
-                    .debug_name
-                    .as_ref()
-                    .map(|name| name.to_string())
-                    // If the debug name is not present, try to get the name from declared_libfuncs_names
-                    .or_else(|| {
-                        declared_libfuncs_names
-                            .get(invocation.libfunc_id.id as usize)
-                            .map(|name| name.to_string())
-                            // If neither the debug name nor the name from declared_libfuncs_names is present,
-                            // format the id as a string
-                            .or_else(|| Some(format!("[{}]", invocation.libfunc_id.id)))
-                    })
-                    .unwrap();
+                // We use `parse_element_name_with_fallback` and not `parse_element_name` because
+                // we try to match the libfunc id with it's corresponding name if it's a remote contract
+                let libfunc_id = parse_element_name_with_fallback!(
+                    invocation.libfunc_id,
+                    declared_libfuncs_names
+                );
 
                 if !Self::is_function_allowed(&libfunc_id, verbose) {
                     return None; // Skip formatting if function is not allowed
