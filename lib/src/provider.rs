@@ -13,7 +13,7 @@ impl NetworkConfig {
 
     /// URL for the Sepolia API
     pub const SEPOLIA_API_URL: &'static str =
-        "https://starknet-mainnet.public.blastapi.io/rpc/v0_6";
+        "https://starknet-sepolia.public.blastapi.io/rpc/v0_6";
 }
 
 /// Struct representing an RPC client
