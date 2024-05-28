@@ -2,12 +2,32 @@
 /// using the debug_name if present or falling back to the ID field
 #[macro_export]
 macro_rules! parse_element_name {
-    ($libfunc_id:expr) => {
-        if let Some(debug_name) = &$libfunc_id.debug_name {
+    ($element_id:expr) => {
+        if let Some(debug_name) = &$element_id.debug_name {
             debug_name.to_string()
         } else {
-            $libfunc_id.id.to_string()
+            $element_id.id.to_string()
         }
+    };
+}
+
+/// Macro to parse the debug name or get the name from a provided map,
+/// or fallback to the ID. This is used to match the element ID with
+/// its corresponding libfunc or type name
+#[macro_export]
+macro_rules! parse_element_name_with_fallback {
+    ($element_id:expr, $fallback_map:expr) => {
+        $element_id
+            .debug_name
+            .as_ref()
+            .map(|name| name.to_string())
+            .or_else(|| {
+                $fallback_map
+                    .get($element_id.id as usize)
+                    .map(|name| name.to_string())
+                    .or_else(|| Some(format!("[{}]", $element_id.id)))
+            })
+            .unwrap()
     };
 }
 

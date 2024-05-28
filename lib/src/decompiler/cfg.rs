@@ -76,6 +76,11 @@ impl<'a> ControlFlowGraph {
 
     /// Generates the CFG basic blocks
     pub fn generate_basic_blocks(&mut self) {
+        // Check if there are no statements and return early
+        if self.statements.is_empty() {
+            return;
+        }
+
         // Retrieve basic blocks delimitations
         let (basic_blocks_starts, basic_blocks_ends) = self.get_basic_blocks_delimitations();
 
@@ -107,7 +112,7 @@ impl<'a> ControlFlowGraph {
             }
 
             // Handle conditional branches
-            if let Some(conditional_branch) = statement.as_conditional_branch() {
+            if let Some(conditional_branch) = statement.as_conditional_branch(vec![]) {
                 if let Some(edge_2_offset) = conditional_branch.edge_2_offset {
                     // Conditional branch with 2 edges (JNZ)
                     current_basic_block.edges.push(Edge {

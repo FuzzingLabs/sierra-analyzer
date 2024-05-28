@@ -14,6 +14,7 @@ use crate::decompiler::function::Function;
 use crate::decompiler::function::SierraStatement;
 use crate::decompiler::libfuncs_patterns::{IS_ZERO_REGEX, USER_DEFINED_FUNCTION_REGEX};
 use crate::parse_element_name;
+use crate::parse_element_name_with_fallback;
 use crate::sierra_program::SierraProgram;
 
 /// A struct that represents a decompiler for a Sierra program
@@ -28,6 +29,10 @@ pub struct Decompiler<'a> {
     printed_blocks: Vec<BasicBlock>,
     /// The function we are currently working on
     current_function: Option<Function<'a>>,
+    /// Names of all declared types (in order)
+    declared_types_names: Vec<String>,
+    /// Names of all declared libfuncs (in order)
+    declared_libfuncs_names: Vec<String>,
     /// Enable / disable the verbose output
     /// Some statements are not included in the regular output to improve the readability
     verbose: bool,
@@ -41,6 +46,8 @@ impl<'a> Decompiler<'a> {
             indentation: 1,
             printed_blocks: Vec::new(),
             current_function: None,
+            declared_types_names: Vec::new(),
+            declared_libfuncs_names: Vec::new(),
             verbose: verbose,
         }
     }
@@ -76,7 +83,7 @@ impl<'a> Decompiler<'a> {
     }
 
     /// Decompiles the type declarations
-    fn decompile_types(&self) -> String {
+    fn decompile_types(&mut self) -> String {
         self.sierra_program
             .program()
             .type_declarations
@@ -87,7 +94,7 @@ impl<'a> Decompiler<'a> {
     }
 
     /// Decompiles the libfunc declarations
-    fn decompile_libfuncs(&self) -> String {
+    fn decompile_libfuncs(&mut self) -> String {
         self.sierra_program
             .program()
             .libfunc_declarations
@@ -126,7 +133,7 @@ impl<'a> Decompiler<'a> {
     }
 
     /// Decompiles a single type declaration
-    fn decompile_type(&self, type_declaration: &TypeDeclaration) -> String {
+    fn decompile_type(&mut self, type_declaration: &TypeDeclaration) -> String {
         // Get the debug name of the type's ID
         let id = format!(
             "{}",
@@ -135,10 +142,9 @@ impl<'a> Decompiler<'a> {
                 .debug_name
                 .as_ref()
                 .unwrap_or(&"".into())
-        )
-        .yellow();
+        );
 
-        // Get the long ID of the type, which consists of the generic ID and any generic arguments
+        // Get the long ID of the type
         let long_id = &type_declaration.long_id;
         let generic_id = long_id.generic_id.to_string();
 
@@ -152,8 +158,14 @@ impl<'a> Decompiler<'a> {
             generic_id.clone()
         };
 
-        // Retrieve the declared type information for the type, if it exists
-        // We don't use it in the decompiler output because it might not be readable enough
+        // Conditionally format id and long_id_repr
+        let (id_colored, long_id_repr_colored) = if id.is_empty() {
+            (id.yellow(), long_id_repr.yellow().to_string())
+        } else {
+            (id.white(), long_id_repr.clone())
+        };
+
+        // Retrieve declared type information
         let _declared_type_info_str = type_declaration.declared_type_info.as_ref().map_or_else(
             String::new,
             |declared_type_info| {
@@ -168,18 +180,33 @@ impl<'a> Decompiler<'a> {
             },
         );
 
-        // Conditionally append long_id_repr in parentheses if it is different from id
-        let type_definition = if *long_id_repr != *id {
-            format!("type {} ({})", id, long_id_repr)
-        } else {
-            format!("type {}", id)
+        // Construct the type definition string
+        // If the id is not empty, format the type definition with the id and optionally the long ID representation
+        let type_definition = if !id.is_empty() {
+            let id_string = id.clone().to_string();
+            self.declared_types_names.push(id_string.clone());
+            format!(
+                "type {}{}",
+                id.yellow(),
+                if long_id_repr_colored != id_colored.to_string() {
+                    format!(" ({})", long_id_repr_colored)
+                } else {
+                    "".to_string()
+                }
+            )
+        }
+        // If the id is empty, format the type definition with only the long ID representation
+        else {
+            let long_id_repr_string = long_id_repr.clone().to_string();
+            self.declared_types_names.push(long_id_repr_string.clone());
+            format!("type {}{}", long_id_repr_colored, "")
         };
 
         type_definition
     }
 
-    /// Decompile an single libfunc
-    fn decompile_libfunc(&self, libfunc_declaration: &LibfuncDeclaration) -> String {
+    /// Decompiles an individual libfunc declaration
+    fn decompile_libfunc(&mut self, libfunc_declaration: &LibfuncDeclaration) -> String {
         // Get the debug name of the libfunc's ID
         let id = format!(
             "{}",
@@ -188,10 +215,25 @@ impl<'a> Decompiler<'a> {
                 .debug_name
                 .as_ref()
                 .unwrap_or(&"".into())
-        )
-        .blue();
+        );
 
-        format!("libfunc {}", id)
+        // Get the long ID of the libfunc
+        let long_id = &libfunc_declaration.long_id;
+
+        // Parse kgeneric arguments
+        let _arguments = self.parse_arguments(&libfunc_declaration.long_id.generic_args);
+
+        // Construct the libfunc definition string
+        let libfunc_definition = if id.is_empty() {
+            long_id.to_string() // Use long_id if id is empty
+        } else {
+            id.to_string()
+        };
+
+        self.declared_libfuncs_names
+            .push(libfunc_definition.clone()); // Push non-colored version to declared_libfuncs_names
+
+        format!("libfunc {}", libfunc_definition.blue())
     }
 
     /// Decompiles the functions prototypes
@@ -217,8 +259,8 @@ impl<'a> Decompiler<'a> {
         &self,
         function_declaration: &GenFunction<StatementIdx>,
     ) -> String {
-        // Get the debug name of the function's ID and format it in bold
-        let id = format!("{}", function_declaration.id.debug_name.as_ref().unwrap()).bold();
+        // Parse the function name
+        let id = format!("{}", parse_element_name!(function_declaration.id)).bold();
 
         // Get the function signature, which consists of the parameter types and return types
         let signature = &function_declaration.signature;
@@ -226,15 +268,13 @@ impl<'a> Decompiler<'a> {
             .param_types
             .iter()
             .map(|param_type| {
-                param_type
-                    .debug_name
-                    .as_ref()
-                    .unwrap_or(&format!("[{}]", param_type.id).into())
-                    .to_string()
+                // We use `parse_element_name_with_fallback` and not `parse_element_name` because
+                // we try to match the type id with it's corresponding name if it's a remote contract
+                parse_element_name_with_fallback!(param_type, self.declared_types_names)
             })
             .collect();
 
-        // Create a list of strings representing the function parameters,
+        // Create a list of strings representing the function parameters
         // with each string formatted as "<param_name>: <param_type>"
         let param_strings: Vec<String> = param_types
             .iter()
@@ -262,7 +302,8 @@ impl<'a> Decompiler<'a> {
                 let ret_type_string = if let Some(debug_name) = &ret_type.debug_name {
                     debug_name.to_string()
                 } else {
-                    format!("[{}]", ret_type.id)
+                    // Replace id with the corresponding type name
+                    format!("[{}]", self.declared_types_names[ret_type.id as usize])
                 };
                 let ret_type_colored = ret_type_string.purple(); // Color ret_type_string in purple
                 ret_type_colored.to_string()
@@ -482,7 +523,11 @@ impl<'a> Decompiler<'a> {
         // Append each statement to the string block
         for statement in &block.statements {
             // If condition
-            if let Some(conditional_branch) = statement.as_conditional_branch() {
+            if let Some(conditional_branch) =
+                // We pass it the declared libfunc names to allow the method to reconstruct function calls
+                // For remote contracts
+                statement.as_conditional_branch(self.declared_libfuncs_names.clone())
+            {
                 if block.edges.len() == 2 {
                     let function_name = &conditional_branch.function;
                     let function_arguments = conditional_branch.parameters.join(", ");
@@ -494,7 +539,11 @@ impl<'a> Decompiler<'a> {
                 }
             }
             // Unconditional jump
-            else if let Some(_unconditional_branch) = statement.as_conditional_branch() {
+            else if let Some(_unconditional_branch) =
+                // We pass it the declared libfunc names to allow the method to reconstruct function calls
+                // For remote contracts
+                statement.as_conditional_branch(self.declared_libfuncs_names.clone())
+            {
                 // Handle unconditional branch logic
                 todo!()
             }
@@ -502,7 +551,12 @@ impl<'a> Decompiler<'a> {
             else {
                 // Add the formatted statements to the block
                 // Some statements are only included in the verbose output
-                if let Some(formatted_statement) = statement.formatted_statement(self.verbose) {
+                //
+                // We pass it the declared libfunc names to allow the method to reconstruct function calls
+                // For remote contracts
+                if let Some(formatted_statement) = statement
+                    .formatted_statement(self.verbose, self.declared_libfuncs_names.clone())
+                {
                     decompiled_basic_block += &format!("{}{}\n", indentation, formatted_statement);
                 }
             }

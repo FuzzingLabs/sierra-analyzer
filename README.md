@@ -16,7 +16,7 @@ Sierra analyzer is a security toolkit for analyzing Sierra files.
 #### Decompile a Sierra file
 
 ```
-cargo run --bin sierra-decompiler <sierra file>
+cargo run -- -f <sierra file>
 ```
 
 <p align="center">
@@ -27,25 +27,34 @@ cargo run --bin sierra-decompiler <sierra file>
 For a colourless output : 
 
 ```
-cargo run --bin sierra-decompiler <sierra file> --no-color
+cargo run -- -f <sierra file> --no-color
 ```
 
 It it also possible to get a verbose output with more informations : 
 
 ```
-cargo run --bin sierra-decompiler <sierra file> --verbose
+cargo run -- -f <sierra file> --verbose
+```
+
+#### Analyze a remote contract
+
+Contracts can be fetched directly from Starknet (Mainnet & Sepolia) by specifying the contract class to analyze : 
+
+```
+# Fetch & decompile a contract from starknet mainnet 
+cargo run -- --remote 0x07c43d18d37d66d7855dab8f21ebf9d554dd213c6307aacecaf2d595a53b3bbb
+
+# Fetch & decompile a contract from Sepolia network
+cargo run -- --network sepolia --remote 0x068377a89d64c0b16dc97c66933777bf4e9b050652c4fde2c59c8c4d755a163b
 ```
 
 #### Print the contract's Control-Flow Graph
 
 ```
-cargo run ./examples/sierra/fib_array.sierra --cfg  
+cargo run -- -f ./examples/sierra/fib_array.sierra --cfg  
 
 # Output the Control-Flow Graph to a custom folder (default is ./output_cfg)
-cargo run ./tests/sierra_files/fib_array.sierra --cfg --cfg-output ./test 
-
-# Get the CFG of a specific function
-cargo run ./examples/sierra/fib_unary.sierra --cfg --function 'examples::fib_unary::fib'
+cargo run -- -f ./examples/sierra/fib_array.sierra --cfg --cfg-output ./test 
 ```
 
 <p align="center">
@@ -55,13 +64,13 @@ cargo run ./examples/sierra/fib_unary.sierra --cfg --function 'examples::fib_una
 #### Print the contract's Callgraph
 
 ```
-cargo run ./examples/sierra/fib_array.sierra --callgraph
+cargo run -- -f ./examples/sierra/fib_array.sierra --callgraph
 
 # Output the Callgraph to a custom folder (default is ./output_callgraph)
-cargo run ./tests/sierra_files/fib_array.sierra --callgraph --callgraph-output ./test 
+cargo run -- -f ./examples/sierra/fib_array.sierra --callgraph --callgraph-output ./test 
 
 # Get the Callgraph of a specific function
-cargo run ./examples/sierra/fib_unary.sierra --callgraph --function 'examples::fib_unary::fib'
+cargo run -- -f ./examples/sierra/fib_unary.sierra --callgraph --function 'examples::fib_unary::fib'
 ```
 
 <p align="center">
@@ -71,7 +80,7 @@ cargo run ./examples/sierra/fib_unary.sierra --callgraph --function 'examples::f
 #### Run the detectors
 
 ```
-cargo run ./examples/sierra/fib_array.sierra  -d
+cargo run -- -f ./examples/sierra/fib_array.sierra  -d
 ```
 
 <p align="center">
@@ -90,4 +99,5 @@ Examples can be found [here](/lib/examples/).
 - [x] Control-Flow Graph
 - [x] Call Graph
 - [X] Informational & Security detectors
+- [x] Fetching contracts from Starknet
 - [ ] Symbolic execution
