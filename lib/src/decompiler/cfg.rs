@@ -76,6 +76,11 @@ impl<'a> ControlFlowGraph {
 
     /// Generates the CFG basic blocks
     pub fn generate_basic_blocks(&mut self) {
+        // Check if there are no statements and return early
+        if self.statements.is_empty() {
+            return;
+        }
+
         // Retrieve basic blocks delimitations
         let (basic_blocks_starts, basic_blocks_ends) = self.get_basic_blocks_delimitations();
 
