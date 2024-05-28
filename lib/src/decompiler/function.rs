@@ -55,6 +55,7 @@ impl SierraStatement {
         &self,
         verbose: bool,
         declared_libfuncs_names: Vec<String>,
+        declared_types_names: Vec<String>,
     ) -> Option<String> {
         match &self.statement {
             // Return statements
@@ -110,6 +111,7 @@ impl SierraStatement {
                     &libfunc_id_str,
                     &parameters,
                     &verbose,
+                    &declared_types_names,
                 ))
             }
         }
@@ -145,6 +147,7 @@ impl SierraStatement {
         libfunc_id_str: &str,
         parameters: &[String],
         verbose: &bool,
+        declared_types_names: &Vec<String>,
     ) -> String {
         // Join parameters for general use
         let parameters_str = parameters.join(", ");
@@ -205,11 +208,26 @@ impl SierraStatement {
         if let Some(captures) = NEW_ARRAY_REGEX.captures(libfunc_id_str) {
             if let Some(array_type) = captures.get(1) {
                 let formatted_array_type = array_type.as_str();
+
+                // Attempt to get the type from declared_types_names if formatted_array_type is in the form [<number>]
+                // It is used to recover the used type for remote contracts
+                let final_array_type = formatted_array_type
+                    // Remove enclosing brackets
+                    .strip_prefix('[')
+                    .and_then(|s| s.strip_suffix(']'))
+                    // Parse the number inside brackets
+                    .and_then(|index_str| index_str.parse::<usize>().ok())
+                    // Get type by index (from the declared types)
+                    .and_then(|index| declared_types_names.get(index).map(|s| s.to_string()))
+                    // Fallback to the original string if any step fails
+                    .unwrap_or_else(|| formatted_array_type.to_string());
+
+                // Return the formatted array declaration string
                 return format!(
                     "{} = {}<{}>::{}()",
                     assigned_variables_str,
                     "Array".blue(),
-                    formatted_array_type,
+                    final_array_type,
                     "new".blue()
                 );
             }

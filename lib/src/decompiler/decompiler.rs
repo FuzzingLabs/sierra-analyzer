@@ -552,11 +552,13 @@ impl<'a> Decompiler<'a> {
                 // Add the formatted statements to the block
                 // Some statements are only included in the verbose output
                 //
-                // We pass it the declared libfunc names to allow the method to reconstruct function calls
-                // For remote contracts
-                if let Some(formatted_statement) = statement
-                    .formatted_statement(self.verbose, self.declared_libfuncs_names.clone())
-                {
+                // We pass it the declared libfunc names & types names to allow the method
+                // to reconstruct function calls & used types for remote contracts
+                if let Some(formatted_statement) = statement.formatted_statement(
+                    self.verbose,
+                    self.declared_libfuncs_names.clone(),
+                    self.declared_types_names.clone(),
+                ) {
                     decompiled_basic_block += &format!("{}{}\n", indentation, formatted_statement);
                 }
             }
