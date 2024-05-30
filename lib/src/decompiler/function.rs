@@ -14,6 +14,7 @@ use crate::decompiler::libfuncs_patterns::{
     VARIABLE_ASSIGNMENT_REGEX,
 };
 use crate::decompiler::utils::decode_hex_bigint;
+use crate::decompiler::utils::replace_types_id;
 use crate::extract_parameters;
 use crate::parse_element_name;
 use crate::parse_element_name_with_fallback;
@@ -160,11 +161,17 @@ impl SierraStatement {
                     return format!(
                         "{} = {}({})",
                         assigned_variables_str,
-                        formatted_func.blue(),
+                        // Recover the type from type_id if it's a remote contract
+                        replace_types_id(declared_types_names, formatted_func).blue(),
                         parameters_str
                     );
                 } else {
-                    return format!("{}({})", formatted_func.blue(), parameters_str);
+                    return format!(
+                        "{}({})",
+                        // Recover the type from type_id if it's a remote contract
+                        replace_types_id(declared_types_names, formatted_func).blue(),
+                        parameters_str
+                    );
                 }
             }
         }
@@ -177,7 +184,8 @@ impl SierraStatement {
                 return format!(
                     "{} = {}({})",
                     assigned_variables_str,
-                    libfunc_id_str.blue(),
+                    // Recover the type from type_id if it's a remote contract
+                    replace_types_id(declared_types_names, libfunc_id_str).blue(),
                     parameters_str
                 );
             }
@@ -211,16 +219,7 @@ impl SierraStatement {
 
                 // Attempt to get the type from declared_types_names if formatted_array_type is in the form [<number>]
                 // It is used to recover the used type for remote contracts
-                let final_array_type = formatted_array_type
-                    // Remove enclosing brackets
-                    .strip_prefix('[')
-                    .and_then(|s| s.strip_suffix(']'))
-                    // Parse the number inside brackets
-                    .and_then(|index_str| index_str.parse::<usize>().ok())
-                    // Get type by index (from the declared types)
-                    .and_then(|index| declared_types_names.get(index).map(|s| s.to_string()))
-                    // Fallback to the original string if any step fails
-                    .unwrap_or_else(|| formatted_array_type.to_string());
+                let final_array_type = replace_types_id(declared_types_names, formatted_array_type);
 
                 // Return the formatted array declaration string
                 return format!(
@@ -248,6 +247,7 @@ impl SierraStatement {
         }
 
         // Handling const declarations
+        // TODO : Fix the bug whit remote contracts where consts aren't decoded to strings
         for regex in CONST_REGEXES.iter() {
             if let Some(captures) = regex.captures(libfunc_id_str) {
                 if let Some(const_value) = captures.name("const") {
@@ -285,11 +285,17 @@ impl SierraStatement {
                 format!(
                     "{} = {}({})",
                     assigned_variables_str,
-                    libfunc_id_str.blue(),
+                    // Recover the type from type_id if it's a remote contract
+                    replace_types_id(declared_types_names, libfunc_id_str).blue(),
                     parameters_str
                 )
             } else {
-                format!("{}({})", libfunc_id_str.blue(), parameters_str)
+                format!(
+                    "{}({})",
+                    // Recover the type from type_id if it's a remote contract
+                    replace_types_id(declared_types_names, libfunc_id_str).blue(),
+                    parameters_str
+                )
             };
         };
 

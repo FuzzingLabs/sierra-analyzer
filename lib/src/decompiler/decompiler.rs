@@ -13,6 +13,7 @@ use crate::decompiler::cfg::EdgeType;
 use crate::decompiler::function::Function;
 use crate::decompiler::function::SierraStatement;
 use crate::decompiler::libfuncs_patterns::{IS_ZERO_REGEX, USER_DEFINED_FUNCTION_REGEX};
+use crate::decompiler::utils::replace_types_id;
 use crate::parse_element_name;
 use crate::parse_element_name_with_fallback;
 use crate::sierra_program::SierraProgram;
@@ -591,7 +592,8 @@ impl<'a> Decompiler<'a> {
         format!(
             "{}if ({}({}) == 0) {}{}\n",
             indentation_str,
-            function_name,
+            // Recover the type from type_id if it's a remote contract
+            replace_types_id(&self.declared_types_names, function_name).blue(),
             function_arguments,
             bold_brace_open,
             "\t".repeat(indentation + 1) // Adjust for nested content indentation

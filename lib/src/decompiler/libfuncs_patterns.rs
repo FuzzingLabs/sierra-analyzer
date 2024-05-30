@@ -48,4 +48,8 @@ lazy_static! {
     // Array declarations & mutations
     pub static ref NEW_ARRAY_REGEX: Regex = Regex::new(r"array_new<(?P<array_type>.+)>").unwrap();
     pub static ref ARRAY_APPEND_REGEX: Regex = Regex::new(r"array_append<(.+)>").unwrap();
+
+    // Regex of a type ID
+    // Used to match and replace them in remote contracts
+    pub static ref TYPE_ID_REGEX: Regex = Regex::new(r"(?<type_id>\[[0-9]+\])").unwrap();
 }
