@@ -150,6 +150,10 @@ impl SierraStatement {
         verbose: &bool,
         declared_types_names: &Vec<String>,
     ) -> String {
+        // Replace types id in libfuncs names by their types names equivalents in remote contracts
+        let binding = replace_types_id(declared_types_names, &libfunc_id_str);
+        let libfunc_id_str = binding.as_str();
+
         // Join parameters for general use
         let parameters_str = parameters.join(", ");
 
@@ -161,17 +165,11 @@ impl SierraStatement {
                     return format!(
                         "{} = {}({})",
                         assigned_variables_str,
-                        // Recover the type from type_id if it's a remote contract
-                        replace_types_id(declared_types_names, formatted_func).blue(),
+                        formatted_func.blue(),
                         parameters_str
                     );
                 } else {
-                    return format!(
-                        "{}({})",
-                        // Recover the type from type_id if it's a remote contract
-                        replace_types_id(declared_types_names, formatted_func).blue(),
-                        parameters_str
-                    );
+                    return format!("{}({})", formatted_func.blue(), parameters_str);
                 }
             }
         }
@@ -184,8 +182,7 @@ impl SierraStatement {
                 return format!(
                     "{} = {}({})",
                     assigned_variables_str,
-                    // Recover the type from type_id if it's a remote contract
-                    replace_types_id(declared_types_names, libfunc_id_str).blue(),
+                    libfunc_id_str.blue(),
                     parameters_str
                 );
             }
@@ -217,9 +214,7 @@ impl SierraStatement {
             if let Some(array_type) = captures.get(1) {
                 let formatted_array_type = array_type.as_str();
 
-                // Attempt to get the type from declared_types_names if formatted_array_type is in the form [<number>]
-                // It is used to recover the used type for remote contracts
-                let final_array_type = replace_types_id(declared_types_names, formatted_array_type);
+                let final_array_type = formatted_array_type;
 
                 // Return the formatted array declaration string
                 return format!(
@@ -247,7 +242,6 @@ impl SierraStatement {
         }
 
         // Handling const declarations
-        // TODO : Fix the bug whit remote contracts where consts aren't decoded to strings
         for regex in CONST_REGEXES.iter() {
             if let Some(captures) = regex.captures(libfunc_id_str) {
                 if let Some(const_value) = captures.name("const") {
@@ -285,17 +279,11 @@ impl SierraStatement {
                 format!(
                     "{} = {}({})",
                     assigned_variables_str,
-                    // Recover the type from type_id if it's a remote contract
-                    replace_types_id(declared_types_names, libfunc_id_str).blue(),
+                    libfunc_id_str.blue(),
                     parameters_str
                 )
             } else {
-                format!(
-                    "{}({})",
-                    // Recover the type from type_id if it's a remote contract
-                    replace_types_id(declared_types_names, libfunc_id_str).blue(),
-                    parameters_str
-                )
+                format!("{}({})", libfunc_id_str.blue(), parameters_str)
             };
         };
 

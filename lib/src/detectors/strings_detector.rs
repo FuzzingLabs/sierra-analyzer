@@ -1,6 +1,7 @@
 use crate::decompiler::decompiler::Decompiler;
 use crate::decompiler::libfuncs_patterns::CONST_REGEXES;
 use crate::decompiler::utils::decode_hex_bigint;
+use crate::decompiler::utils::replace_types_id;
 use crate::detectors::detector::{Detector, DetectorType};
 use crate::parse_element_name;
 
@@ -58,6 +59,20 @@ impl Detector for StringsDetector {
                         // Parse the ID of the invoked library function
                         let libfunc_id_str = parse_element_name!(invocation.libfunc_id);
 
+                        // If the libfunc id is an integer
+                        let libfunc_id_str = if let Ok(index) = libfunc_id_str.parse::<usize>() {
+                            // If it's a remote contract we try to convert the types IDs to their equivalents types names
+                            if let Some(libfunc_name) =
+                                decompiler.declared_libfuncs_names.get(index)
+                            {
+                                replace_types_id(&decompiler.declared_types_names, libfunc_name)
+                            } else {
+                                continue;
+                            }
+                        } else {
+                            parse_element_name!(invocation.libfunc_id)
+                        };
+
                         // Iterate over the CONST_REGEXES and check if the input string matches
                         for regex in CONST_REGEXES.iter() {
                             if let Some(captures) = regex.captures(&libfunc_id_str) {
@@ -72,8 +87,12 @@ impl Detector for StringsDetector {
                                     if let Some(decoded_string) =
                                         decode_hex_bigint(&const_value_bigint)
                                     {
-                                        // Add the decoded string to the set
-                                        extracted_strings.insert(decoded_string);
+                                        // Check if the string is not empty, not whitespace, and contains printable characters
+                                        if !decoded_string.trim().is_empty()
+                                            && decoded_string.chars().any(|c| c.is_ascii_graphic())
+                                        {
+                                            extracted_strings.insert(decoded_string);
+                                        }
                                     }
                                 }
                             }

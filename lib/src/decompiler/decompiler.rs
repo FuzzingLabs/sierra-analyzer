@@ -31,9 +31,9 @@ pub struct Decompiler<'a> {
     /// The function we are currently working on
     current_function: Option<Function<'a>>,
     /// Names of all declared types (in order)
-    declared_types_names: Vec<String>,
+    pub declared_types_names: Vec<String>,
     /// Names of all declared libfuncs (in order)
-    declared_libfuncs_names: Vec<String>,
+    pub declared_libfuncs_names: Vec<String>,
     /// Enable / disable the verbose output
     /// Some statements are not included in the regular output to improve the readability
     verbose: bool,
