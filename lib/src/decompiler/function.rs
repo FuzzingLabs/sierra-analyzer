@@ -128,6 +128,7 @@ impl SierraStatement {
         match function_name {
             "branch_align"
             | "disable_ap_tracking"
+            | "enable_ap_tracking"
             | "finalize_locals"
             | "revoke_ap_tracking"
             | "get_builtin_costs" => false,

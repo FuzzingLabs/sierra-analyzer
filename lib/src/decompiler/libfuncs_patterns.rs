@@ -29,7 +29,9 @@ lazy_static! {
     // Variable renaming
     pub static ref VARIABLE_ASSIGNMENT_REGEX: Vec<Regex> = vec![
         Regex::new(r"rename<.+>").unwrap(),
-        Regex::new(r"store_temp<.+>").unwrap()
+        Regex::new(r"store_temp<.+>").unwrap(),
+        Regex::new(r"store_local<.+>").unwrap(),
+        Regex::new(r"unbox<.+>").unwrap()
     ];
 
     // Check if an integer is 0
