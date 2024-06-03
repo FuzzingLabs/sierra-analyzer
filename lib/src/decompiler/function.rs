@@ -14,6 +14,7 @@ use crate::decompiler::libfuncs_patterns::{
     VARIABLE_ASSIGNMENT_REGEX,
 };
 use crate::decompiler::utils::decode_hex_bigint;
+use crate::decompiler::utils::replace_types_id;
 use crate::extract_parameters;
 use crate::parse_element_name;
 use crate::parse_element_name_with_fallback;
@@ -55,6 +56,7 @@ impl SierraStatement {
         &self,
         verbose: bool,
         declared_libfuncs_names: Vec<String>,
+        declared_types_names: Vec<String>,
     ) -> Option<String> {
         match &self.statement {
             // Return statements
@@ -110,6 +112,7 @@ impl SierraStatement {
                     &libfunc_id_str,
                     &parameters,
                     &verbose,
+                    &declared_types_names,
                 ))
             }
         }
@@ -125,6 +128,7 @@ impl SierraStatement {
         match function_name {
             "branch_align"
             | "disable_ap_tracking"
+            | "enable_ap_tracking"
             | "finalize_locals"
             | "revoke_ap_tracking"
             | "get_builtin_costs" => false,
@@ -145,7 +149,12 @@ impl SierraStatement {
         libfunc_id_str: &str,
         parameters: &[String],
         verbose: &bool,
+        declared_types_names: &Vec<String>,
     ) -> String {
+        // Replace types id in libfuncs names by their types names equivalents in remote contracts
+        let binding = replace_types_id(declared_types_names, &libfunc_id_str);
+        let libfunc_id_str = binding.as_str();
+
         // Join parameters for general use
         let parameters_str = parameters.join(", ");
 
@@ -205,11 +214,15 @@ impl SierraStatement {
         if let Some(captures) = NEW_ARRAY_REGEX.captures(libfunc_id_str) {
             if let Some(array_type) = captures.get(1) {
                 let formatted_array_type = array_type.as_str();
+
+                let final_array_type = formatted_array_type;
+
+                // Return the formatted array declaration string
                 return format!(
                     "{} = {}<{}>::{}()",
                     assigned_variables_str,
                     "Array".blue(),
-                    formatted_array_type,
+                    final_array_type,
                     "new".blue()
                 );
             }

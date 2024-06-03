@@ -29,7 +29,9 @@ lazy_static! {
     // Variable renaming
     pub static ref VARIABLE_ASSIGNMENT_REGEX: Vec<Regex> = vec![
         Regex::new(r"rename<.+>").unwrap(),
-        Regex::new(r"store_temp<.+>").unwrap()
+        Regex::new(r"store_temp<.+>").unwrap(),
+        Regex::new(r"store_local<.+>").unwrap(),
+        Regex::new(r"unbox<.+>").unwrap()
     ];
 
     // Check if an integer is 0
@@ -37,7 +39,7 @@ lazy_static! {
 
     // Consts declarations
     pub static ref CONST_REGEXES: Vec<Regex> = vec![
-        Regex::new(r"const_as_immediate<Const<.+, (?P<const>-?[0-9]+)>>").unwrap(),
+        Regex::new(r"const_as_immediate<Const<.*, (?P<const>-?[0-9]+)>>").unwrap(),
         Regex::new(r"storage_base_address_const<(?P<const>-?[0-9]+)>").unwrap(),
         Regex::new(r"(felt|u)_?(8|16|32|64|128|252)_const<(?P<const>-?[0-9]+)>").unwrap(),
     ];
@@ -48,4 +50,8 @@ lazy_static! {
     // Array declarations & mutations
     pub static ref NEW_ARRAY_REGEX: Regex = Regex::new(r"array_new<(?P<array_type>.+)>").unwrap();
     pub static ref ARRAY_APPEND_REGEX: Regex = Regex::new(r"array_append<(.+)>").unwrap();
+
+    // Regex of a type ID
+    // Used to match and replace them in remote contracts
+    pub static ref TYPE_ID_REGEX: Regex = Regex::new(r"(?<type_id>\[[0-9]+\])").unwrap();
 }

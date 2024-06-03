@@ -13,6 +13,7 @@ use crate::decompiler::cfg::EdgeType;
 use crate::decompiler::function::Function;
 use crate::decompiler::function::SierraStatement;
 use crate::decompiler::libfuncs_patterns::{IS_ZERO_REGEX, USER_DEFINED_FUNCTION_REGEX};
+use crate::decompiler::utils::replace_types_id;
 use crate::parse_element_name;
 use crate::parse_element_name_with_fallback;
 use crate::sierra_program::SierraProgram;
@@ -30,9 +31,9 @@ pub struct Decompiler<'a> {
     /// The function we are currently working on
     current_function: Option<Function<'a>>,
     /// Names of all declared types (in order)
-    declared_types_names: Vec<String>,
+    pub declared_types_names: Vec<String>,
     /// Names of all declared libfuncs (in order)
-    declared_libfuncs_names: Vec<String>,
+    pub declared_libfuncs_names: Vec<String>,
     /// Enable / disable the verbose output
     /// Some statements are not included in the regular output to improve the readability
     verbose: bool,
@@ -552,11 +553,13 @@ impl<'a> Decompiler<'a> {
                 // Add the formatted statements to the block
                 // Some statements are only included in the verbose output
                 //
-                // We pass it the declared libfunc names to allow the method to reconstruct function calls
-                // For remote contracts
-                if let Some(formatted_statement) = statement
-                    .formatted_statement(self.verbose, self.declared_libfuncs_names.clone())
-                {
+                // We pass it the declared libfunc names & types names to allow the method
+                // to reconstruct function calls & used types for remote contracts
+                if let Some(formatted_statement) = statement.formatted_statement(
+                    self.verbose,
+                    self.declared_libfuncs_names.clone(),
+                    self.declared_types_names.clone(),
+                ) {
                     decompiled_basic_block += &format!("{}{}\n", indentation, formatted_statement);
                 }
             }
@@ -589,7 +592,8 @@ impl<'a> Decompiler<'a> {
         format!(
             "{}if ({}({}) == 0) {}{}\n",
             indentation_str,
-            function_name,
+            // Recover the type from type_id if it's a remote contract
+            replace_types_id(&self.declared_types_names, function_name).blue(),
             function_arguments,
             bold_brace_open,
             "\t".repeat(indentation + 1) // Adjust for nested content indentation

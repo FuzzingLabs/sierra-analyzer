@@ -1,3 +1,4 @@
+use crate::decompiler::libfuncs_patterns::TYPE_ID_REGEX;
 use num_bigint::BigInt;
 use std::str;
 
@@ -17,4 +18,42 @@ pub fn decode_hex_bigint(bigint: &BigInt) -> Option<String> {
     };
 
     string
+}
+
+/// Replaces type IDs in the given invocation string with the corresponding type names from the declared_types_names list
+/// If there are no matches or if there is an error in the process, the original string is returned
+pub fn replace_types_id(declared_types_names: &Vec<String>, invocation: &str) -> String {
+    // Use the TYPE_ID_REGEX to replace all matches in the invocation string
+    TYPE_ID_REGEX
+        .replace_all(&invocation, |caps: &regex::Captures| {
+            // Get the type ID from the capture group
+            caps.name("type_id")
+                // Parse the type ID as a usize, if possible
+                .and_then(|type_id| {
+                    let type_id_str = type_id.as_str();
+                    // Check if the type ID is not preceded by "user@" (to avoid mistakes w/ user defined functions)
+                    if !caps
+                        .get(0)
+                        .unwrap()
+                        .start()
+                        .checked_sub(5)
+                        .map_or(false, |i| &invocation[i..i + 5] == "user@")
+                    {
+                        // If the type ID is not preceded by "user@", parse it as a usize
+                        type_id_str
+                            .trim_matches(|c| c == '[' || c == ']')
+                            .parse::<usize>()
+                            .ok()
+                    } else {
+                        // If the type ID is preceded by "user@", return None
+                        None
+                    }
+                })
+                // Use the parsed type ID as an index into the declared_types_names list
+                .and_then(|index| declared_types_names.get(index).cloned())
+                // If there was an error, return the original type ID
+                .unwrap_or_else(|| caps[0].to_string())
+        })
+        // Convert the result to a string
+        .to_string()
 }
