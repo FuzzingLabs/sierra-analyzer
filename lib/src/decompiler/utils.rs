@@ -1,6 +1,7 @@
-use crate::decompiler::libfuncs_patterns::TYPE_ID_REGEX;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
 use std::str;
+
+use crate::decompiler::libfuncs_patterns::TYPE_ID_REGEX;
 
 /// Convert an integer to it's string value or hex value
 /// Used to decode consts
@@ -56,4 +57,13 @@ pub fn replace_types_id(declared_types_names: &Vec<String>, invocation: &str) ->
         })
         // Convert the result to a string
         .to_string()
+}
+
+/// Decrypts a user-defined type ID and returns the corresponding type name
+/// If the type ID is not found, returns the string "ut@[<type id>]" where <type id> is the integer value of the type ID
+pub fn decrypt_user_defined_type_id(type_id: BigUint) -> String {
+    // TODO: Implement the decryption logic here
+
+    // For now, return the string "ut@[<type id>]" where <type id> is the integer value of the type ID
+    format!("ut@[{}]", type_id)
 }

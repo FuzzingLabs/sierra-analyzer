@@ -13,6 +13,7 @@ use crate::decompiler::cfg::EdgeType;
 use crate::decompiler::function::Function;
 use crate::decompiler::function::SierraStatement;
 use crate::decompiler::libfuncs_patterns::{IS_ZERO_REGEX, USER_DEFINED_FUNCTION_REGEX};
+use crate::decompiler::utils::decrypt_user_defined_type_id;
 use crate::decompiler::utils::replace_types_id;
 use crate::parse_element_name;
 use crate::parse_element_name_with_fallback;
@@ -116,9 +117,11 @@ impl<'a> Decompiler<'a> {
                     if let Some(name) = &t.debug_name {
                         format!("ut@{}", name)
                     }
-                    // use ID
+                    // use id
+                    // Convert it to string if possible
+                    // User defined typed ids are the 250 first bits of the id name Keccak hash
                     else {
-                        format!("ut@[{}]", t.id)
+                        decrypt_user_defined_type_id(t.id.clone())
                     }
                 }
                 // Builtin type
