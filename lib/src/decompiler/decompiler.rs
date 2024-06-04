@@ -414,8 +414,8 @@ impl<'a> Decompiler<'a> {
                 };
 
                 // Define bold braces for function body enclosure
-                let bold_brace_open = "{".blue().bold();
-                let bold_brace_close = "}".blue().bold();
+                let bold_brace_open = "{".bold();
+                let bold_brace_close = "}".bold();
 
                 // Combine prototype and body into a formatted string
                 let purple_comment = format!("// Function {}", index + 1).purple();
@@ -435,8 +435,8 @@ impl<'a> Decompiler<'a> {
         let mut basic_blocks_str = String::new();
 
         // Define bold braces once for use in formatting
-        let bold_brace_open = "{".blue().bold();
-        let bold_brace_close = "}".blue().bold();
+        let bold_brace_open = "{".bold();
+        let bold_brace_close = "}".bold();
 
         // Add the root basic block
         basic_blocks_str += &self.basic_block_to_string(block);
@@ -479,10 +479,12 @@ impl<'a> Decompiler<'a> {
                         // End of if block
                         self.indentation -= 1;
 
+                        let magenta_else = "else".magenta();
                         basic_blocks_str += &format!(
-                            "{}{} else {}{}\n",
+                            "{}{} {} {}{}\n",
                             "\t".repeat(self.indentation as usize),
                             bold_brace_close,
+                            magenta_else,
                             bold_brace_open,
                             "\t".repeat(self.indentation as usize)
                         );
@@ -578,23 +580,26 @@ impl<'a> Decompiler<'a> {
         function_arguments: String,
         indentation: usize,
     ) -> String {
-        let bold_brace_open = "{".blue().bold();
+        let magenta_if = "if".magenta();
+        let bold_brace_open = "{".bold();
         let indentation_str = "\t".repeat(indentation);
 
         // Check if the function name matches the IS_ZERO_REGEX
         if IS_ZERO_REGEX.is_match(function_name) && !self.verbose {
             let argument = function_arguments.trim();
             return format!(
-                "{}if ({argument} == 0) {}{}\n",
+                "{}{} ({argument} == 0) {}{}\n",
                 indentation_str,
+                magenta_if,
                 bold_brace_open,
                 "\t".repeat(indentation + 1)
             );
         }
 
         format!(
-            "{}if ({}({}) == 0) {}{}\n",
+            "{}{} ({}({}) == 0) {}{}\n",
             indentation_str,
+            magenta_if,
             // Recover the type from type_id if it's a remote contract
             replace_types_id(&self.declared_types_names, function_name).blue(),
             function_arguments,

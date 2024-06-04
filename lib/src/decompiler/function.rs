@@ -151,6 +151,9 @@ impl SierraStatement {
         verbose: &bool,
         declared_types_names: &Vec<String>,
     ) -> String {
+        // We set the sign color to magenta for all invocations statements
+        let equal_sign: &str = &"=".magenta().to_string();
+
         // Replace types id in libfuncs names by their types names equivalents in remote contracts
         let binding = replace_types_id(declared_types_names, &libfunc_id_str);
         let libfunc_id_str = binding.as_str();
@@ -164,10 +167,10 @@ impl SierraStatement {
                 let formatted_func = inner_func.as_str();
                 if !assigned_variables_str.is_empty() {
                     return format!(
-                        "{} = {}({})",
+                        "{} {} {}",
                         assigned_variables_str,
-                        formatted_func.blue(),
-                        parameters_str
+                        equal_sign,
+                        format!("{}({})", formatted_func.blue(), parameters_str)
                     );
                 } else {
                     return format!("{}({})", formatted_func.blue(), parameters_str);
@@ -181,10 +184,10 @@ impl SierraStatement {
                 return format!("{}({})", libfunc_id_str.blue(), parameters_str);
             } else {
                 return format!(
-                    "{} = {}({})",
+                    "{} {} {}",
                     assigned_variables_str,
-                    libfunc_id_str.blue(),
-                    parameters_str
+                    equal_sign,
+                    format!("{}({})", libfunc_id_str.blue(), parameters_str)
                 );
             }
         }
@@ -194,7 +197,7 @@ impl SierraStatement {
         // But we can represent it as a variable assignment such as : v2 = v1
         if DUP_REGEX.is_match(libfunc_id_str) {
             if let Some((first_var, second_var)) = assigned_variables_str.split_once(", ") {
-                return format!("{} = {}", second_var, first_var);
+                return format!("{} {} {}", second_var, equal_sign, first_var);
             }
         }
 
@@ -205,7 +208,7 @@ impl SierraStatement {
         {
             if let Some(old_var) = parameters.first().cloned() {
                 let assigned_variable = assigned_variables_str.to_string();
-                return format!("{} = {}", assigned_variable, old_var);
+                return format!("{} {} {}", assigned_variable, equal_sign, old_var);
             }
         }
 
@@ -219,8 +222,9 @@ impl SierraStatement {
 
                 // Return the formatted array declaration string
                 return format!(
-                    "{} = {}<{}>::{}()",
+                    "{} {} {}<{}>::{}()",
                     assigned_variables_str,
+                    equal_sign,
                     "Array".blue(),
                     final_array_type,
                     "new".blue()
@@ -234,8 +238,9 @@ impl SierraStatement {
             let array_name = parameters[0].clone();
             let appent_value_name = parameters[1].clone();
             return format!(
-                "{} = {}.{}({})",
+                "{} {} {}.{}({})",
                 assigned_variables_str,
+                equal_sign,
                 array_name,
                 "append".blue(),
                 appent_value_name
@@ -253,15 +258,23 @@ impl SierraStatement {
 
                     // If the const integer can be decoded to a valid string, use the string as a comment
                     if let Some(decoded_string) = decode_hex_bigint(&const_value_bigint) {
-                        let string_comment = format!(r#"// "{}""#, decoded_string).green();
+                        let string_comment = format!(r#"// "{}""#, decoded_string).bright_black();
                         return format!(
-                            "{} = {} {}",
-                            assigned_variables_str, const_value_str, string_comment
+                            "{} {} {} {}",
+                            assigned_variables_str,
+                            equal_sign,
+                            const_value_str.cyan(),
+                            string_comment
                         );
                     }
                     // If the string can not be decoded as a valid string
                     else {
-                        return format!("{} = {}", assigned_variables_str, const_value_str);
+                        return format!(
+                            "{} {} {}",
+                            assigned_variables_str,
+                            equal_sign,
+                            const_value_str.cyan()
+                        );
                     }
                 }
             }
@@ -278,8 +291,9 @@ impl SierraStatement {
             // Return default formatting if no special formatting is applicable
             return if !assigned_variables_str.is_empty() {
                 format!(
-                    "{} = {}({})",
+                    "{} {} {}({})",
                     assigned_variables_str,
+                    equal_sign,
                     libfunc_id_str.blue(),
                     parameters_str
                 )
@@ -290,8 +304,9 @@ impl SierraStatement {
 
         // Format arithmetic operations more explicitly
         format!(
-            "{} = {}",
+            "{} {} {}",
             assigned_variables_str,
+            equal_sign,
             parameters
                 .iter()
                 .map(|p| p.as_str())
