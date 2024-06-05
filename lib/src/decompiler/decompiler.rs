@@ -12,7 +12,10 @@ use crate::decompiler::cfg::BasicBlock;
 use crate::decompiler::cfg::EdgeType;
 use crate::decompiler::function::Function;
 use crate::decompiler::function::SierraStatement;
-use crate::decompiler::libfuncs_patterns::{IS_ZERO_REGEX, USER_DEFINED_FUNCTION_REGEX};
+use crate::decompiler::libfuncs_patterns::{
+    IRRELEVANT_CALLGRAPH_FUNCTIONS_REGEXES, IS_ZERO_REGEX, USER_DEFINED_FUNCTION_REGEX,
+};
+use crate::decompiler::utils::decrypt_user_defined_type_id;
 use crate::decompiler::utils::replace_types_id;
 use crate::parse_element_name;
 use crate::parse_element_name_with_fallback;
@@ -116,9 +119,11 @@ impl<'a> Decompiler<'a> {
                     if let Some(name) = &t.debug_name {
                         format!("ut@{}", name)
                     }
-                    // use ID
+                    // use id
+                    // Convert it to string if possible
+                    // User defined typed ids are the 250 first bits of the id name Keccak hash
                     else {
-                        format!("ut@[{}]", t.id)
+                        decrypt_user_defined_type_id(t.id.clone())
                     }
                 }
                 // Builtin type
@@ -411,8 +416,8 @@ impl<'a> Decompiler<'a> {
                 };
 
                 // Define bold braces for function body enclosure
-                let bold_brace_open = "{".blue().bold();
-                let bold_brace_close = "}".blue().bold();
+                let bold_brace_open = "{".bold();
+                let bold_brace_close = "}".bold();
 
                 // Combine prototype and body into a formatted string
                 let purple_comment = format!("// Function {}", index + 1).purple();
@@ -432,8 +437,8 @@ impl<'a> Decompiler<'a> {
         let mut basic_blocks_str = String::new();
 
         // Define bold braces once for use in formatting
-        let bold_brace_open = "{".blue().bold();
-        let bold_brace_close = "}".blue().bold();
+        let bold_brace_open = "{".bold();
+        let bold_brace_close = "}".bold();
 
         // Add the root basic block
         basic_blocks_str += &self.basic_block_to_string(block);
@@ -476,10 +481,12 @@ impl<'a> Decompiler<'a> {
                         // End of if block
                         self.indentation -= 1;
 
+                        let magenta_else = "else".magenta();
                         basic_blocks_str += &format!(
-                            "{}{} else {}{}\n",
+                            "{}{} {} {}{}\n",
                             "\t".repeat(self.indentation as usize),
                             bold_brace_close,
+                            magenta_else,
                             bold_brace_open,
                             "\t".repeat(self.indentation as usize)
                         );
@@ -575,23 +582,26 @@ impl<'a> Decompiler<'a> {
         function_arguments: String,
         indentation: usize,
     ) -> String {
-        let bold_brace_open = "{".blue().bold();
+        let magenta_if = "if".magenta();
+        let bold_brace_open = "{".bold();
         let indentation_str = "\t".repeat(indentation);
 
         // Check if the function name matches the IS_ZERO_REGEX
         if IS_ZERO_REGEX.is_match(function_name) && !self.verbose {
             let argument = function_arguments.trim();
             return format!(
-                "{}if ({argument} == 0) {}{}\n",
+                "{}{} ({argument} == 0) {}{}\n",
                 indentation_str,
+                magenta_if,
                 bold_brace_open,
                 "\t".repeat(indentation + 1)
             );
         }
 
         format!(
-            "{}if ({}({}) == 0) {}{}\n",
+            "{}{} ({}({}) == 0) {}{}\n",
             indentation_str,
+            magenta_if,
             // Recover the type from type_id if it's a remote contract
             replace_types_id(&self.declared_types_names, function_name).blue(),
             function_arguments,
@@ -661,6 +671,7 @@ impl<'a> Decompiler<'a> {
                     GenStatement::Invocation(statement) => {
                         let called_function = parse_element_name!(&statement.libfunc_id);
 
+                        // Add user-defined function to the callgraph
                         // Check if the called function matches the user-defined function regex
                         if let Some(captures) =
                             USER_DEFINED_FUNCTION_REGEX.captures(&called_function)
@@ -681,8 +692,19 @@ impl<'a> Decompiler<'a> {
                                     function_name, called_function_name
                                 ));
                             }
-                        } else {
+                        }
+                        // Add libfuncs to the callgraph
+                        else {
                             let called_function_name = format!("{}\t\t", called_function.as_str());
+
+                            // Skip irrelevant functions
+                            if IRRELEVANT_CALLGRAPH_FUNCTIONS_REGEXES
+                                .iter()
+                                .any(|regex| regex.is_match(&called_function_name))
+                            {
+                                continue;
+                            }
+
                             // Create the node in the DOT format and append it to the dot string
                             dot.push_str(&format!(
                                     "   \"{}\" [shape=\"rectangle\", fillcolor=\"{}\", style=\"filled\"];\n",

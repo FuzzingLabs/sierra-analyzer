@@ -1,6 +1,15 @@
 ### Sierra Analyzer
 
-Sierra analyzer is a security toolkit for analyzing Sierra files.
+Sierra-Analyzer is a security toolkit for analyzing Sierra files.
+
+1) [Project structure](#project-structure)
+2) [Decompile a Sierra file](#decompile-a-sierra-file)
+3) [Analyze a remote contract](#analyze-a-remote-contract)
+4) [Print the contract's Control-Flow Graph](#print-the-contracts-control-flow-graph)
+5) [Print the contract's Callgraph](#print-the-contracts-callgraph)
+6) [Run the detectors](#print-the-contracts-callgraph)
+7) [Use it as a library](#print-the-contracts-callgraph)
+8) [Improve the decompiler output using LLMs](#print-the-contracts-callgraph)
 
 #### Project structure 
 
@@ -92,6 +101,10 @@ cargo run -- -f ./examples/sierra/fib_array.sierra  -d
 It is also possible to use the `sierra-analyzer-lib` library to decompile serialised or unserialised Sierra files.
 
 Examples can be found [here](/lib/examples/).
+
+#### Improve the decompiler output using LLMs
+
+[Here](/doc/llm-decompilation.md) is a tutorial on how to improve the decompiler output using LLMs.
 
 #### Features
 
