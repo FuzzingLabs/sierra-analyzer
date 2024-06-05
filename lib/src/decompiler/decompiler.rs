@@ -12,7 +12,13 @@ use crate::decompiler::cfg::BasicBlock;
 use crate::decompiler::cfg::EdgeType;
 use crate::decompiler::function::Function;
 use crate::decompiler::function::SierraStatement;
-use crate::decompiler::libfuncs_patterns::{IS_ZERO_REGEX, USER_DEFINED_FUNCTION_REGEX};
+use crate::decompiler::libfuncs_patterns::{
+    ADDITION_REGEX, ARRAY_APPEND_REGEX, DUP_REGEX, IS_ZERO_REGEX, MULTIPLICATION_REGEX,
+    NEW_ARRAY_REGEX, SUBSTRACTION_REGEX, USER_DEFINED_FUNCTION_REGEX,
+};
+use crate::decompiler::libfuncs_patterns::{
+    DROP_REGEX, STORE_TEMP_REGEX, VARIABLE_ASSIGNMENT_REGEX,
+};
 use crate::decompiler::utils::decrypt_user_defined_type_id;
 use crate::decompiler::utils::replace_types_id;
 use crate::parse_element_name;
@@ -669,6 +675,7 @@ impl<'a> Decompiler<'a> {
                     GenStatement::Invocation(statement) => {
                         let called_function = parse_element_name!(&statement.libfunc_id);
 
+                        // Add user-defined function to the callgraph
                         // Check if the called function matches the user-defined function regex
                         if let Some(captures) =
                             USER_DEFINED_FUNCTION_REGEX.captures(&called_function)
@@ -689,8 +696,28 @@ impl<'a> Decompiler<'a> {
                                     function_name, called_function_name
                                 ));
                             }
-                        } else {
+                        }
+                        // Add libfuncs to the callgraph
+                        else {
                             let called_function_name = format!("{}\t\t", called_function.as_str());
+
+                            // Skip libfuncs that are not relevant for the callgraph
+                            if DROP_REGEX.is_match(&called_function_name)
+                                || STORE_TEMP_REGEX.is_match(&called_function_name)
+                                || NEW_ARRAY_REGEX.is_match(&called_function_name)
+                                || ARRAY_APPEND_REGEX.is_match(&called_function_name)
+                                || DUP_REGEX.is_match(&called_function_name)
+                                || ADDITION_REGEX.is_match(&called_function_name)
+                                || SUBSTRACTION_REGEX.is_match(&called_function_name)
+                                || MULTIPLICATION_REGEX.is_match(&called_function_name)
+                                || IS_ZERO_REGEX.is_match(&called_function_name)
+                                || VARIABLE_ASSIGNMENT_REGEX
+                                    .iter()
+                                    .any(|regex| regex.is_match(&called_function_name))
+                            {
+                                continue;
+                            }
+
                             // Create the node in the DOT format and append it to the dot string
                             dot.push_str(&format!(
                                     "   \"{}\" [shape=\"rectangle\", fillcolor=\"{}\", style=\"filled\"];\n",
