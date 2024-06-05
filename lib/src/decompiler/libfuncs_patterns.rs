@@ -54,4 +54,29 @@ lazy_static! {
     // Regex of a type ID
     // Used to match and replace them in remote contracts
     pub static ref TYPE_ID_REGEX: Regex = Regex::new(r"(?<type_id>\[[0-9]+\])").unwrap();
+
+    /// Irrelevant callgraph functions regexes
+    pub static ref IRRELEVANT_CALLGRAPH_FUNCTIONS_REGEXES: Vec<Regex> = {
+        let mut regexes = vec![
+            DROP_REGEX.clone(),
+            STORE_TEMP_REGEX.clone(),
+            NEW_ARRAY_REGEX.clone(),
+            ARRAY_APPEND_REGEX.clone(),
+            DUP_REGEX.clone(),
+            ADDITION_REGEX.clone(),
+            SUBSTRACTION_REGEX.clone(),
+            MULTIPLICATION_REGEX.clone(),
+            IS_ZERO_REGEX.clone(),
+            // Add the additional strings as regexes
+            Regex::new(r"branch_align").unwrap(),
+            Regex::new(r"disable_ap_tracking").unwrap(),
+            Regex::new(r"enable_ap_tracking").unwrap(),
+            Regex::new(r"finalize_locals").unwrap(),
+            Regex::new(r"revoke_ap_tracking").unwrap(),
+            Regex::new(r"get_builtin_costs").unwrap(),
+        ];
+        // Extend the vector with all the variable assignment regexes
+        regexes.extend(VARIABLE_ASSIGNMENT_REGEX.clone());
+        regexes
+    };
 }

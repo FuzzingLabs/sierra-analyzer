@@ -13,11 +13,7 @@ use crate::decompiler::cfg::EdgeType;
 use crate::decompiler::function::Function;
 use crate::decompiler::function::SierraStatement;
 use crate::decompiler::libfuncs_patterns::{
-    ADDITION_REGEX, ARRAY_APPEND_REGEX, DUP_REGEX, IS_ZERO_REGEX, MULTIPLICATION_REGEX,
-    NEW_ARRAY_REGEX, SUBSTRACTION_REGEX, USER_DEFINED_FUNCTION_REGEX,
-};
-use crate::decompiler::libfuncs_patterns::{
-    DROP_REGEX, STORE_TEMP_REGEX, VARIABLE_ASSIGNMENT_REGEX,
+    IRRELEVANT_CALLGRAPH_FUNCTIONS_REGEXES, IS_ZERO_REGEX, USER_DEFINED_FUNCTION_REGEX,
 };
 use crate::decompiler::utils::decrypt_user_defined_type_id;
 use crate::decompiler::utils::replace_types_id;
@@ -701,19 +697,10 @@ impl<'a> Decompiler<'a> {
                         else {
                             let called_function_name = format!("{}\t\t", called_function.as_str());
 
-                            // Skip libfuncs that are not relevant for the callgraph
-                            if DROP_REGEX.is_match(&called_function_name)
-                                || STORE_TEMP_REGEX.is_match(&called_function_name)
-                                || NEW_ARRAY_REGEX.is_match(&called_function_name)
-                                || ARRAY_APPEND_REGEX.is_match(&called_function_name)
-                                || DUP_REGEX.is_match(&called_function_name)
-                                || ADDITION_REGEX.is_match(&called_function_name)
-                                || SUBSTRACTION_REGEX.is_match(&called_function_name)
-                                || MULTIPLICATION_REGEX.is_match(&called_function_name)
-                                || IS_ZERO_REGEX.is_match(&called_function_name)
-                                || VARIABLE_ASSIGNMENT_REGEX
-                                    .iter()
-                                    .any(|regex| regex.is_match(&called_function_name))
+                            // Skip irrelevant functions
+                            if IRRELEVANT_CALLGRAPH_FUNCTIONS_REGEXES
+                                .iter()
+                                .any(|regex| regex.is_match(&called_function_name))
                             {
                                 continue;
                             }
