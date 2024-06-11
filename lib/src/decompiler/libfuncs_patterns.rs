@@ -55,7 +55,6 @@ lazy_static! {
     // Used to match and replace them in remote contracts
     pub static ref TYPE_ID_REGEX: Regex = Regex::new(r"(?<type_id>\[[0-9]+\])").unwrap();
 
-    // User-defined type ID
     // User defined types IDs are the 250 first bits of the id name Keccak hash
     // https://github.com/starkware-libs/cairo/blob/b29f639c2090822914f52db6696d71748a8b93a6/crates/cairo-lang-sierra/src/ids.rs#L118
     pub static ref USER_DEFINED_TYPE_ID_REGEX: Regex = Regex::new(r"ut@\[(?<type_id>[0-9]+)\]").unwrap();

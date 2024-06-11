@@ -6,6 +6,7 @@ use crate::decompiler::libfuncs_patterns::USER_DEFINED_TYPE_ID_REGEX;
 
 /// Convert an integer to it's string value or hex value
 /// Used to decode consts
+#[inline]
 pub fn decode_hex_bigint(bigint: &BigInt) -> Option<String> {
     // Convert the BigInt to a hexadecimal string
     let hex_string = format!("{:x}", bigint);

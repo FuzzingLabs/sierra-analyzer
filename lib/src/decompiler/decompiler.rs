@@ -630,6 +630,7 @@ impl<'a> Decompiler<'a> {
     }
 
     /// Generate a callgraph representation in DOT Format
+    #[inline]
     pub fn generate_callgraph(&mut self) -> String {
         process_callgraph(&self.functions)
     }
