@@ -1,7 +1,8 @@
-use num_bigint::{BigInt, BigUint};
+use num_bigint::BigInt;
 use std::str;
 
 use crate::decompiler::libfuncs_patterns::TYPE_ID_REGEX;
+use crate::decompiler::libfuncs_patterns::USER_DEFINED_TYPE_ID_REGEX;
 
 /// Convert an integer to it's string value or hex value
 /// Used to decode consts
@@ -59,11 +60,20 @@ pub fn replace_types_id(declared_types_names: &Vec<String>, invocation: &str) ->
         .to_string()
 }
 
-/// Decrypts a user-defined type ID and returns the corresponding type name
-/// If the type ID is not found, returns the string "ut@[<type id>]" where <type id> is the integer value of the type ID
-pub fn decrypt_user_defined_type_id(type_id: BigUint) -> String {
-    // TODO: Implement the decryption logic here
-
-    // For now, return the string "ut@[<type id>]" where <type id> is the integer value of the type ID
-    format!("ut@[{}]", type_id)
+/// "Decode" (simplify) a user-defined type ID by truncating it to the 4th character
+/// or return the type_id if it does not match the USER_DEFINED_TYPE_ID_REGEX regex pattern
+pub fn decode_user_defined_type_id(type_id: String) -> String {
+    if let Some(captures) = USER_DEFINED_TYPE_ID_REGEX.captures(&type_id) {
+        // If the type ID matches the regex pattern, truncate it to the 4th character
+        if let Some(type_id_match) = captures.name("type_id") {
+            let truncated_type_id = &type_id_match.as_str()[..4];
+            format!("ut@[{}...]", truncated_type_id)
+        } else {
+            // If the type ID does not match the regex pattern, return the original input string
+            type_id
+        }
+    } else {
+        // If the input string does not match the regex pattern, return the original input string
+        type_id
+    }
 }

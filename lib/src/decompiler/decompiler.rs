@@ -12,7 +12,7 @@ use crate::decompiler::cfg::EdgeType;
 use crate::decompiler::function::Function;
 use crate::decompiler::function::SierraStatement;
 use crate::decompiler::libfuncs_patterns::IS_ZERO_REGEX;
-use crate::decompiler::utils::decrypt_user_defined_type_id;
+use crate::decompiler::utils::decode_user_defined_type_id;
 use crate::decompiler::utils::replace_types_id;
 use crate::graph::callgraph::process_callgraph;
 use crate::parse_element_name;
@@ -117,11 +117,19 @@ impl<'a> Decompiler<'a> {
                     if let Some(name) = &t.debug_name {
                         format!("ut@{}", name)
                     }
-                    // use id
-                    // Convert it to string if possible
-                    // User defined typed ids are the 250 first bits of the id name Keccak hash
+                    // use ID
                     else {
-                        decrypt_user_defined_type_id(t.id.clone())
+                        // We first format as ut@[<type_id] it and then decode the user-defined types ID part in it if needed
+                        if !self.verbose {
+                            decode_user_defined_type_id(format!(
+                                "ut@[{}]",
+                                t.id.clone().to_string()
+                            ))
+                        }
+                        // Don't decode the user-defined types IDs in verbose mode
+                        else {
+                            format!("ut@[{}]", t.id.clone().to_string())
+                        }
                     }
                 }
                 // Builtin type
