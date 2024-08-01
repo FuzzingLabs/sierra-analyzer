@@ -16,10 +16,10 @@ impl DetectorType {
     pub fn as_str(&self) -> colored::ColoredString {
         match self {
             // Informational detectors types are green
-            DetectorType::INFORMATIONAL => "Informational".green(),
+            DetectorType::INFORMATIONAL => "Informational".normal().green(),
 
             // Security detectors types are blue
-            DetectorType::SECURITY => "Security".blue(),
+            DetectorType::SECURITY => "Security".normal().blue(),
         }
     }
 }
@@ -35,6 +35,6 @@ pub trait Detector: Debug {
     fn description(&self) -> &'static str;
     // A detector can be either a security detector or an informational detector
     fn detector_type(&self) -> DetectorType;
-    // Run the detector on the
+    // Run the detector on the decompiler instance
     fn detect(&mut self, decompiler: &mut Decompiler) -> String;
 }

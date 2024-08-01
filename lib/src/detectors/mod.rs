@@ -8,11 +8,18 @@ use crate::detectors::functions_detector::FunctionsDetector;
 use crate::detectors::statistics_detector::StatisticsDetector;
 use crate::detectors::strings_detector::StringsDetector;
 
+/// Macro to create a vector of detectors
+macro_rules! create_detectors {
+    ($($detector:ty),*) => {
+        vec![
+            $(
+                Box::new(<$detector>::new()),
+            )*
+        ]
+    };
+}
+
 /// Returns a vector of all the instantiated detectors
 pub fn get_detectors() -> Vec<Box<dyn Detector>> {
-    vec![
-        Box::new(FunctionsDetector::new()),
-        Box::new(StringsDetector::new()),
-        Box::new(StatisticsDetector::new()),
-    ]
+    create_detectors!(FunctionsDetector, StringsDetector, StatisticsDetector)
 }
