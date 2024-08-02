@@ -430,6 +430,8 @@ pub struct Function<'a> {
     pub cfg: Option<ControlFlowGraph>,
     /// The prototype of the function
     pub prototype: Option<String>,
+    /// Arguments of the function
+    pub arguments: Vec<(String, String)>,
 }
 
 impl<'a> Function<'a> {
@@ -442,6 +444,7 @@ impl<'a> Function<'a> {
             end_offset: None,
             cfg: None,
             prototype: None,
+            arguments: Vec::new(),
         }
     }
 
@@ -482,5 +485,11 @@ impl<'a> Function<'a> {
     #[inline]
     pub fn set_prototype(&mut self, prototype: String) {
         self.prototype = Some(prototype);
+    }
+
+    /// Sets the arguments of the function
+    #[inline]
+    pub fn set_arguments(&mut self, arguments: Vec<(String, String)>) {
+        self.arguments = arguments;
     }
 }
