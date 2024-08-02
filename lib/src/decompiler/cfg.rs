@@ -153,15 +153,58 @@ impl<'a> ControlFlowGraph {
         self.basic_blocks.push(current_basic_block);
     }
 
+    /// Returns all the possible paths in a function
+    pub fn paths(&self) -> Vec<Vec<&BasicBlock>> {
+        let mut paths = Vec::new();
+
+        // Find paths starting blocks
+        for block in &self.basic_blocks {
+            if self.parents(block).is_empty() {
+                paths.push(vec![block]);
+            }
+        }
+
+        // Find all the paths
+        let mut new_paths = Vec::new();
+        while paths != new_paths {
+            new_paths.clear();
+            for path in &paths {
+                let last_block = path.last().unwrap();
+                let last_block_children = self.children(last_block);
+                if last_block_children.is_empty() {
+                    new_paths.push(path.clone());
+                } else {
+                    for child_block in last_block_children {
+                        let mut new_path = path.clone();
+                        new_path.push(child_block);
+                        new_paths.push(new_path);
+                    }
+                }
+            }
+            // No new paths
+            if new_paths == paths {
+                break;
+            }
+            paths = new_paths.clone();
+        }
+
+        // Skip the first path if it exists
+        if paths.len() > 1 {
+            paths.drain(0..1);
+        }
+
+        paths
+    }
+
     /// Returns the children blocks of a basic block
-    /// Unused for now but will be useful to construct the graphs
-    #[allow(dead_code)]
     fn children(&self, block: &BasicBlock) -> Vec<&BasicBlock> {
         let mut children = Vec::new();
-        let edges_destinations: HashSet<_> =
-            block.edges.iter().map(|edge| edge.destination).collect();
+        let edges_destinations: HashSet<_> = block
+            .edges
+            .iter()
+            .map(|edge| edge.destination + 1)
+            .collect();
 
-        // Find all blocks having an edge with the current block as source
         for basic_block in &self.basic_blocks {
             if edges_destinations.contains(&basic_block.start_offset) {
                 children.push(basic_block);
@@ -171,18 +214,15 @@ impl<'a> ControlFlowGraph {
     }
 
     /// Returns the parent blocks of a basic block
-    /// Unused for now but will be useful to construct the graphs
-    #[allow(dead_code)]
     fn parents(&self, block: &BasicBlock) -> Vec<&BasicBlock> {
         let mut parents = Vec::new();
         let start_offset = block.start_offset;
 
-        // Find all blocks having an edge with the current block as destination
         for basic_block in &self.basic_blocks {
             let edges_offset: Vec<_> = basic_block
                 .edges
                 .iter()
-                .map(|edge| edge.destination)
+                .map(|edge| edge.destination + 1)
                 .collect();
             if edges_offset.contains(&start_offset) {
                 parents.push(basic_block);
