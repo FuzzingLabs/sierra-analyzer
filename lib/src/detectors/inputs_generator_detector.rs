@@ -5,7 +5,9 @@ use cairo_lang_sierra::program::GenStatement;
 
 use crate::decompiler::decompiler::Decompiler;
 use crate::decompiler::function::SierraStatement;
-use crate::decompiler::libfuncs_patterns::{CONST_REGEXES, DUP_REGEX};
+use crate::decompiler::libfuncs_patterns::{
+    ADDITION_REGEX, CONST_REGEXES, DUP_REGEX, MULTIPLICATION_REGEX, SUBSTRACTION_REGEX,
+};
 use crate::detectors::detector::{Detector, DetectorType};
 use crate::{extract_parameters, parse_element_name_with_fallback};
 
@@ -28,7 +30,7 @@ fn sierra_statement_to_constraint<'ctx>(
                     invocation.libfunc_id,
                     declared_libfuncs_names
                 );
-                let _parameters = extract_parameters!(invocation.args);
+                let parameters = extract_parameters!(invocation.args);
                 let assigned_variables = extract_parameters!(&invocation
                     .branches
                     .first()
@@ -59,6 +61,30 @@ fn sierra_statement_to_constraint<'ctx>(
                         }
                     }
                 }
+
+                // Handling arithmetic operations
+                let operator = if ADDITION_REGEX.is_match(&libfunc_id_str) {
+                    "+"
+                } else if SUBSTRACTION_REGEX.is_match(&libfunc_id_str) {
+                    "-"
+                } else if MULTIPLICATION_REGEX.is_match(&libfunc_id_str) {
+                    "*"
+                } else {
+                    return None;
+                };
+
+                let assigned_variable = Int::new_const(context, assigned_variables[0].clone());
+                let first_operand = Int::new_const(context, parameters[0].clone());
+                let second_operand = Int::new_const(context, parameters[1].clone());
+
+                let constraint = match operator {
+                    "+" => assigned_variable._eq(&(first_operand + second_operand)),
+                    "-" => assigned_variable._eq(&(first_operand - second_operand)),
+                    "*" => assigned_variable._eq(&(first_operand * second_operand)),
+                    _ => return None,
+                };
+
+                return Some(constraint);
             }
             _ => {}
         }
