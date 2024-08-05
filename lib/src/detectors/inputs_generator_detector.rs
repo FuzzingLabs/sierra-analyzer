@@ -6,7 +6,8 @@ use cairo_lang_sierra::program::GenStatement;
 use crate::decompiler::decompiler::Decompiler;
 use crate::decompiler::function::SierraStatement;
 use crate::decompiler::libfuncs_patterns::{
-    ADDITION_REGEX, CONST_REGEXES, DUP_REGEX, MULTIPLICATION_REGEX, SUBSTRACTION_REGEX,
+    ADDITION_REGEX, CONST_REGEXES, DUP_REGEX, IS_ZERO_REGEX, MULTIPLICATION_REGEX,
+    SUBSTRACTION_REGEX,
 };
 use crate::detectors::detector::{Detector, DetectorType};
 use crate::{extract_parameters, parse_element_name_with_fallback};
@@ -17,77 +18,76 @@ fn sierra_statement_to_constraint<'ctx>(
     context: &'ctx Context,
     declared_libfuncs_names: Vec<String>,
 ) -> Option<Bool<'ctx>> {
-    // Conditions
-    if statement.is_conditional_branch {
-    }
-    // Variables assignations
-    else {
-        let inner_statement = &statement.statement;
-        match inner_statement {
-            GenStatement::Invocation(invocation) => {
-                // Extract libfunc name, parameters & assigned variables
-                let libfunc_id_str = parse_element_name_with_fallback!(
-                    invocation.libfunc_id,
-                    declared_libfuncs_names
-                );
-                let parameters = extract_parameters!(invocation.args);
-                let assigned_variables = extract_parameters!(&invocation
-                    .branches
-                    .first()
-                    .map(|branch| &branch.results)
-                    .unwrap_or(&vec![]));
+    let inner_statement = &statement.statement;
+    match inner_statement {
+        GenStatement::Invocation(invocation) => {
+            // Extract libfunc name, parameters & assigned variables
+            let libfunc_id_str =
+                parse_element_name_with_fallback!(invocation.libfunc_id, declared_libfuncs_names);
+            let parameters = extract_parameters!(invocation.args);
+            let assigned_variables = extract_parameters!(&invocation
+                .branches
+                .first()
+                .map(|branch| &branch.results)
+                .unwrap_or(&vec![]));
 
-                // Handling variables duplications
-                if DUP_REGEX.is_match(&libfunc_id_str) {
-                    let first_var_z3 = Int::new_const(context, assigned_variables[0].clone());
-                    let second_var_z3 = Int::new_const(context, assigned_variables[1].clone());
-                    return Some(second_var_z3._eq(&first_var_z3).into());
-                }
+            // Handling variables duplications
+            if DUP_REGEX.is_match(&libfunc_id_str) {
+                let first_var_z3 = Int::new_const(context, assigned_variables[0].clone());
+                let second_var_z3 = Int::new_const(context, assigned_variables[1].clone());
+                return Some(second_var_z3._eq(&first_var_z3).into());
+            }
 
-                // Handling constant assignments
-                for regex in CONST_REGEXES.iter() {
-                    if let Some(captures) = regex.captures(&libfunc_id_str) {
-                        if let Some(const_value) = captures.name("const") {
-                            // Convert string to a u64 to avoid overflow
-                            let const_value_str = const_value.as_str();
-                            if let Ok(const_value_u64) = u64::from_str(const_value_str) {
-                                if !assigned_variables.is_empty() {
-                                    let assigned_var_z3 =
-                                        Int::new_const(context, &*assigned_variables[0]);
-                                    let const_value_z3 = Int::from_u64(context, const_value_u64);
-                                    return Some(assigned_var_z3._eq(&const_value_z3).into());
-                                }
+            // Handling constant assignments
+            for regex in CONST_REGEXES.iter() {
+                if let Some(captures) = regex.captures(&libfunc_id_str) {
+                    if let Some(const_value) = captures.name("const") {
+                        // Convert string to a u64 to avoid overflow
+                        let const_value_str = const_value.as_str();
+                        if let Ok(const_value_u64) = u64::from_str(const_value_str) {
+                            if !assigned_variables.is_empty() {
+                                let assigned_var_z3 =
+                                    Int::new_const(context, &*assigned_variables[0]);
+                                let const_value_z3 = Int::from_u64(context, const_value_u64);
+                                return Some(assigned_var_z3._eq(&const_value_z3).into());
                             }
                         }
                     }
                 }
+            }
 
-                // Handling arithmetic operations
-                let operator = if ADDITION_REGEX.is_match(&libfunc_id_str) {
-                    "+"
-                } else if SUBSTRACTION_REGEX.is_match(&libfunc_id_str) {
-                    "-"
-                } else if MULTIPLICATION_REGEX.is_match(&libfunc_id_str) {
-                    "*"
-                } else {
-                    return None;
-                };
-
-                let assigned_variable = Int::new_const(context, assigned_variables[0].clone());
-                let first_operand = Int::new_const(context, parameters[0].clone());
-                let second_operand = Int::new_const(context, parameters[1].clone());
-
-                let constraint = match operator {
-                    "+" => assigned_variable._eq(&(first_operand + second_operand)),
-                    "-" => assigned_variable._eq(&(first_operand - second_operand)),
-                    "*" => assigned_variable._eq(&(first_operand * second_operand)),
-                    _ => return None,
-                };
-
+            // Handle conditions
+            if IS_ZERO_REGEX.is_match(&libfunc_id_str) {
+                let operand = Int::new_const(context, parameters[0].clone());
+                let constraint = operand._eq(&Int::from_i64(context, 0));
                 return Some(constraint);
             }
-            _ => {}
+
+            // Handling arithmetic operations
+            let operator = if ADDITION_REGEX.is_match(&libfunc_id_str) {
+                "+"
+            } else if SUBSTRACTION_REGEX.is_match(&libfunc_id_str) {
+                "-"
+            } else if MULTIPLICATION_REGEX.is_match(&libfunc_id_str) {
+                "*"
+            } else {
+                return None;
+            };
+
+            let assigned_variable = Int::new_const(context, assigned_variables[0].clone());
+            let first_operand = Int::new_const(context, parameters[0].clone());
+            let second_operand = Int::new_const(context, parameters[1].clone());
+
+            let constraint = match operator {
+                "+" => assigned_variable._eq(&(first_operand + second_operand)),
+                "-" => assigned_variable._eq(&(first_operand - second_operand)),
+                "*" => assigned_variable._eq(&(first_operand * second_operand)),
+                _ => return None,
+            };
+
+            return Some(constraint);
         }
+        _ => {}
     }
     None
 }
@@ -153,14 +153,14 @@ impl Detector for InputsGeneratorDetector {
                 let cfg = Config::new();
                 let context = Context::new(&cfg);
 
+                // Create a solver
+                let solver = Solver::new(&context);
+
                 // Create Z3 variables for each felt252 argument
                 let z3_variables: Vec<Int> = felt252_arguments
                     .iter()
                     .map(|(arg_name, _)| Int::new_const(&context, &**arg_name))
                     .collect();
-
-                // Create a solver
-                let solver = Solver::new(&context);
 
                 // Convert Sierra statements to z3 constraints
                 for basic_block in path {
