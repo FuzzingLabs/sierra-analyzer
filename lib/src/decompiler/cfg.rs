@@ -188,11 +188,6 @@ impl<'a> ControlFlowGraph {
             paths = new_paths.clone();
         }
 
-        // Skip the first path if it exists
-        if paths.len() > 1 {
-            paths.drain(0..1);
-        }
-
         paths
     }
 

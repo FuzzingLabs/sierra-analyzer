@@ -1,12 +1,68 @@
-use z3::{ast::Bool, ast::Int, Config, Context, SatResult, Solver};
+use std::str::FromStr;
+use z3::{ast::Ast, ast::Bool, ast::Int, Config, Context, SatResult, Solver};
+
+use cairo_lang_sierra::program::GenStatement;
 
 use crate::decompiler::decompiler::Decompiler;
 use crate::decompiler::function::SierraStatement;
+use crate::decompiler::libfuncs_patterns::{CONST_REGEXES, DUP_REGEX};
 use crate::detectors::detector::{Detector, DetectorType};
+use crate::{extract_parameters, parse_element_name_with_fallback};
 
 /// Converts a SierraStatement to a Z3 constraint, or returns None if not applicable
-fn sierra_statement_to_constraint<'ctx>(_statement: &SierraStatement) -> Option<Bool<'ctx>> {
-    // For now, always return None
+fn sierra_statement_to_constraint<'ctx>(
+    statement: &SierraStatement,
+    context: &'ctx Context,
+    declared_libfuncs_names: Vec<String>,
+) -> Option<Bool<'ctx>> {
+    // Conditions
+    if statement.is_conditional_branch {
+    }
+    // Variables assignations
+    else {
+        let inner_statement = &statement.statement;
+        match inner_statement {
+            GenStatement::Invocation(invocation) => {
+                // Extract libfunc name, parameters & assigned variables
+                let libfunc_id_str = parse_element_name_with_fallback!(
+                    invocation.libfunc_id,
+                    declared_libfuncs_names
+                );
+                let _parameters = extract_parameters!(invocation.args);
+                let assigned_variables = extract_parameters!(&invocation
+                    .branches
+                    .first()
+                    .map(|branch| &branch.results)
+                    .unwrap_or(&vec![]));
+
+                // Handling variables duplications
+                if DUP_REGEX.is_match(&libfunc_id_str) {
+                    let first_var_z3 = Int::new_const(context, assigned_variables[0].clone());
+                    let second_var_z3 = Int::new_const(context, assigned_variables[1].clone());
+                    return Some(second_var_z3._eq(&first_var_z3).into());
+                }
+
+                // Handling constant assignments
+                for regex in CONST_REGEXES.iter() {
+                    if let Some(captures) = regex.captures(&libfunc_id_str) {
+                        if let Some(const_value) = captures.name("const") {
+                            // Convert string to a u64 to avoid overflow
+                            let const_value_str = const_value.as_str();
+                            if let Ok(const_value_u64) = u64::from_str(const_value_str) {
+                                if !assigned_variables.is_empty() {
+                                    let assigned_var_z3 =
+                                        Int::new_const(context, &*assigned_variables[0]);
+                                    let const_value_z3 = Int::from_u64(context, const_value_u64);
+                                    return Some(assigned_var_z3._eq(&const_value_z3).into());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
     None
 }
 
@@ -84,7 +140,11 @@ impl Detector for InputsGeneratorDetector {
                 for basic_block in path {
                     for statement in &basic_block.statements {
                         // Convert SierraStatement to a Z3 constraint and add to solver
-                        if let Some(constraint) = sierra_statement_to_constraint(&statement) {
+                        if let Some(constraint) = sierra_statement_to_constraint(
+                            &statement,
+                            &context,
+                            decompiler.declared_libfuncs_names.clone(),
+                        ) {
                             solver.assert(&constraint);
                         }
                     }
