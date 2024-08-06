@@ -113,4 +113,4 @@ Examples can be found [here](/lib/examples/).
 - [x] Call Graph
 - [X] Informational & Security detectors
 - [x] Fetching contracts from Starknet
-- [ ] Symbolic execution
+- [x] Symbolic execution
