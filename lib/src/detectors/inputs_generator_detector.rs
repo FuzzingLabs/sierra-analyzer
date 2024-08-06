@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::str::FromStr;
 use z3::{ast::Ast, ast::Bool, ast::Int, Config, Context, SatResult, Solver};
 
@@ -130,6 +131,7 @@ impl Detector for InputsGeneratorDetector {
     /// Returns all the functions names
     fn detect(&mut self, decompiler: &mut Decompiler) -> String {
         let mut result = String::new();
+        let mut unique_results = HashSet::new();
 
         for function in &mut decompiler.functions {
             let felt252_arguments: Vec<(String, String)> = function
@@ -148,6 +150,7 @@ impl Detector for InputsGeneratorDetector {
             function.create_cfg();
 
             let function_paths = function.cfg.as_ref().unwrap().paths();
+
             for path in &function_paths {
                 // Create a new symbolic execution engine for the function
                 let cfg = Config::new();
@@ -192,17 +195,21 @@ impl Detector for InputsGeneratorDetector {
                                     )
                                 })
                                 .collect();
-                            result.push_str(&format!("{:?}\n", values));
+                            let values_str = format!("{:?}\n", values);
+                            if unique_results.insert(values_str.clone()) {
+                                result.push_str(&values_str);
+                            }
                         }
                     }
                     SatResult::Unsat | SatResult::Unknown => {
-                        // If not solvable, add "non solvable" to the result
-                        result.push_str("non solvable\n");
+                        let non_solvable_str = "non solvable\n".to_string();
+                        if unique_results.insert(non_solvable_str.clone()) {
+                            result.push_str(&non_solvable_str);
+                        }
                     }
                 }
             }
         }
-
         result
     }
 }

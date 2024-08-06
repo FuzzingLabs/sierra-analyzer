@@ -157,35 +157,29 @@ impl<'a> ControlFlowGraph {
     pub fn paths(&self) -> Vec<Vec<&BasicBlock>> {
         let mut paths = Vec::new();
 
-        // Find paths starting blocks
+        // Find the starting blocks
+        let mut start_blocks = Vec::new();
         for block in &self.basic_blocks {
             if self.parents(block).is_empty() {
-                paths.push(vec![block]);
+                start_blocks.push(block);
             }
         }
 
-        // Find all the paths
-        let mut new_paths = Vec::new();
-        while paths != new_paths {
-            new_paths.clear();
-            for path in &paths {
-                let last_block = path.last().unwrap();
-                let last_block_children = self.children(last_block);
-                if last_block_children.is_empty() {
-                    new_paths.push(path.clone());
+        // Perform DFS from each start block to find all paths
+        for start_block in start_blocks {
+            let mut stack = vec![(vec![start_block], start_block)];
+            while let Some((current_path, current_block)) = stack.pop() {
+                let children = self.children(current_block);
+                if children.is_empty() {
+                    paths.push(current_path.clone());
                 } else {
-                    for child_block in last_block_children {
-                        let mut new_path = path.clone();
-                        new_path.push(child_block);
-                        new_paths.push(new_path);
+                    for child in children {
+                        let mut new_path = current_path.clone();
+                        new_path.push(child);
+                        stack.push((new_path, child));
                     }
                 }
             }
-            // No new paths
-            if new_paths == paths {
-                break;
-            }
-            paths = new_paths.clone();
         }
 
         paths
@@ -194,11 +188,8 @@ impl<'a> ControlFlowGraph {
     /// Returns the children blocks of a basic block
     fn children(&self, block: &BasicBlock) -> Vec<&BasicBlock> {
         let mut children = Vec::new();
-        let edges_destinations: HashSet<_> = block
-            .edges
-            .iter()
-            .map(|edge| edge.destination + 1)
-            .collect();
+        let edges_destinations: HashSet<_> =
+            block.edges.iter().map(|edge| edge.destination).collect();
 
         for basic_block in &self.basic_blocks {
             if edges_destinations.contains(&basic_block.start_offset) {
@@ -217,7 +208,7 @@ impl<'a> ControlFlowGraph {
             let edges_offset: Vec<_> = basic_block
                 .edges
                 .iter()
-                .map(|edge| edge.destination + 1)
+                .map(|edge| edge.destination)
                 .collect();
             if edges_offset.contains(&start_offset) {
                 parents.push(basic_block);
