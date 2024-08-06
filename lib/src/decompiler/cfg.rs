@@ -153,15 +153,44 @@ impl<'a> ControlFlowGraph {
         self.basic_blocks.push(current_basic_block);
     }
 
+    /// Returns all the possible paths in a function
+    pub fn paths(&self) -> Vec<Vec<&BasicBlock>> {
+        let mut paths = Vec::new();
+
+        // Find the starting blocks
+        let mut start_blocks = Vec::new();
+        for block in &self.basic_blocks {
+            if self.parents(block).is_empty() {
+                start_blocks.push(block);
+            }
+        }
+
+        // Perform DFS from each start block to find all paths
+        for start_block in start_blocks {
+            let mut stack = vec![(vec![start_block], start_block)];
+            while let Some((current_path, current_block)) = stack.pop() {
+                let children = self.children(current_block);
+                if children.is_empty() {
+                    paths.push(current_path.clone());
+                } else {
+                    for child in children {
+                        let mut new_path = current_path.clone();
+                        new_path.push(child);
+                        stack.push((new_path, child));
+                    }
+                }
+            }
+        }
+
+        paths
+    }
+
     /// Returns the children blocks of a basic block
-    /// Unused for now but will be useful to construct the graphs
-    #[allow(dead_code)]
     fn children(&self, block: &BasicBlock) -> Vec<&BasicBlock> {
         let mut children = Vec::new();
         let edges_destinations: HashSet<_> =
             block.edges.iter().map(|edge| edge.destination).collect();
 
-        // Find all blocks having an edge with the current block as source
         for basic_block in &self.basic_blocks {
             if edges_destinations.contains(&basic_block.start_offset) {
                 children.push(basic_block);
@@ -171,13 +200,10 @@ impl<'a> ControlFlowGraph {
     }
 
     /// Returns the parent blocks of a basic block
-    /// Unused for now but will be useful to construct the graphs
-    #[allow(dead_code)]
     fn parents(&self, block: &BasicBlock) -> Vec<&BasicBlock> {
         let mut parents = Vec::new();
         let start_offset = block.start_offset;
 
-        // Find all blocks having an edge with the current block as destination
         for basic_block in &self.basic_blocks {
             let edges_offset: Vec<_> = basic_block
                 .edges

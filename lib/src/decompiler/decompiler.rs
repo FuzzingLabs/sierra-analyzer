@@ -250,7 +250,7 @@ impl<'a> Decompiler<'a> {
 
     /// Decompiles the functions prototypes
     pub fn decompile_functions_prototypes(&mut self) -> String {
-        let prototypes: Vec<String> = self
+        let prototypes_and_arguments: Vec<(String, Vec<(String, String)>)> = self
             .sierra_program
             .program()
             .funcs
@@ -258,19 +258,27 @@ impl<'a> Decompiler<'a> {
             .map(|function_prototype| self.decompile_function_prototype(function_prototype))
             .collect();
 
-        // Set prototypes for corresponding Function structs
-        for (prototype, function) in prototypes.iter().zip(self.functions.iter_mut()) {
+        // Set prototypes and arguments for corresponding Function structs
+        for ((prototype, arguments), function) in prototypes_and_arguments
+            .iter()
+            .zip(self.functions.iter_mut())
+        {
             function.set_prototype(prototype.clone());
+            function.set_arguments(arguments.clone());
         }
 
-        prototypes.join("\n")
+        prototypes_and_arguments
+            .iter()
+            .map(|(prototype, _)| prototype.clone())
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 
-    /// Decompiles a single function prototype
+    /// Decompiles a function prototype and returns both the formatted prototype & the arguments
     fn decompile_function_prototype(
         &self,
         function_declaration: &GenFunction<StatementIdx>,
-    ) -> String {
+    ) -> (String, Vec<(String, String)>) {
         // Parse the function name
         let id = format!("{}", parse_element_name!(function_declaration.id)).bold();
 
@@ -280,8 +288,8 @@ impl<'a> Decompiler<'a> {
             .param_types
             .iter()
             .map(|param_type| {
-                // We use `parse_element_name_with_fallback` and not `parse_element_name` because
-                // we try to match the type id with it's corresponding name if it's a remote contract
+                // We use `parse_element_name_with_fallback` and not `parse_element_name` because
+                // we try to match the type id with its corresponding name if it's a remote contract
                 parse_element_name_with_fallback!(param_type, self.declared_types_names)
             })
             .collect();
@@ -300,6 +308,20 @@ impl<'a> Decompiler<'a> {
                 let param_name = param_name_string.purple(); // Color param_name in purple
                 let param_type_colored = param_type.yellow(); // Color param_type in yellow
                 format!("{}: {}", param_name, param_type_colored)
+            })
+            .collect();
+
+        // Collect arguments as a vector of tuples
+        let arguments: Vec<(String, String)> = param_types
+            .iter()
+            .zip(function_declaration.params.iter())
+            .map(|(param_type, param)| {
+                let param_name_string = if let Some(debug_name) = &param.id.debug_name {
+                    debug_name.to_string()
+                } else {
+                    format!("v{}", param.id.id)
+                };
+                (param_name_string, param_type.clone())
             })
             .collect();
 
@@ -326,7 +348,9 @@ impl<'a> Decompiler<'a> {
         let ret_types_str = format!("{}", ret_types.join(", "));
 
         // Construct the function declaration string
-        format!("func {} ({}) -> ({})", id, param_str, ret_types_str)
+        let prototype = format!("func {} ({}) -> ({})", id, param_str, ret_types_str);
+
+        (prototype, arguments)
     }
 
     /// Sets the start and end offsets for each function in the Sierra program

@@ -18,7 +18,6 @@ use crate::decompiler::utils::replace_types_id;
 use crate::extract_parameters;
 use crate::parse_element_name;
 use crate::parse_element_name_with_fallback;
-use crate::sym_exec::sym_exec::SymbolicExecution;
 
 /// A struct representing a statement
 #[derive(Debug, Clone)]
@@ -431,8 +430,8 @@ pub struct Function<'a> {
     pub cfg: Option<ControlFlowGraph>,
     /// The prototype of the function
     pub prototype: Option<String>,
-    /// Symbolic execution solver
-    pub symbolic_execution: SymbolicExecution,
+    /// Arguments of the function
+    pub arguments: Vec<(String, String)>,
 }
 
 impl<'a> Function<'a> {
@@ -445,8 +444,7 @@ impl<'a> Function<'a> {
             end_offset: None,
             cfg: None,
             prototype: None,
-            // Initialize symbolic execution
-            symbolic_execution: SymbolicExecution::new(),
+            arguments: Vec::new(),
         }
     }
 
@@ -487,5 +485,11 @@ impl<'a> Function<'a> {
     #[inline]
     pub fn set_prototype(&mut self, prototype: String) {
         self.prototype = Some(prototype);
+    }
+
+    /// Sets the arguments of the function
+    #[inline]
+    pub fn set_arguments(&mut self, arguments: Vec<(String, String)>) {
+        self.arguments = arguments;
     }
 }
