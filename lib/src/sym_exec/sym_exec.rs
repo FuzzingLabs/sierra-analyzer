@@ -98,7 +98,8 @@ pub fn generate_test_cases_for_function(
             }
         }
     }
-    result
+
+    result.trim_end().to_string()
 }
 
 /// A struct that represents a symbolic execution solver
