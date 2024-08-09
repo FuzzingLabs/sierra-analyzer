@@ -45,14 +45,17 @@ pub fn generate_test_cases_for_function(
         let cfg = Config::new();
         let context = Context::new(&cfg);
 
-        // Create a solver
-        let solver = Solver::new(&context);
-
         // Create Z3 variables for each felt252 argument
         let z3_variables: Vec<Int> = felt252_arguments
             .iter()
             .map(|(arg_name, _)| Int::new_const(&context, &**arg_name))
             .collect();
+
+        // Create a solver
+        let mut symbolic_execution = SymbolicExecution::new(&context);
+
+        let mut zero_constraints = Vec::new();
+        let mut other_constraints = Vec::new();
 
         // Convert Sierra statements to z3 constraints
         for basic_block in path {
@@ -63,16 +66,30 @@ pub fn generate_test_cases_for_function(
                     &context,
                     declared_libfuncs_names.clone(),
                 ) {
-                    solver.assert(&constraint);
+                    symbolic_execution.add_constraint(&constraint);
+
+                    // Identify if it's a zero check and store the variable for non-zero testing
+                    if let GenStatement::Invocation(invocation) = &statement.statement {
+                        let libfunc_id_str = parse_element_name_with_fallback!(
+                            invocation.libfunc_id,
+                            declared_libfuncs_names
+                        );
+
+                        if IS_ZERO_REGEX.is_match(&libfunc_id_str) {
+                            let operand_name = format!("v{}", invocation.args[0].id.to_string());
+                            let operand = Int::new_const(&context, operand_name.clone());
+                            zero_constraints.push((operand, constraint));
+                        } else {
+                            // Store other constraints for reuse
+                            other_constraints.push(constraint);
+                        }
+                    }
                 }
             }
-        }
 
-        // Check if the constraints are satisfiable
-        match solver.check() {
-            SatResult::Sat => {
-                // If solvable, add the argument names and values to the result
-                if let Some(model) = solver.get_model() {
+            // Check if the constraints are satisfiable (value == 0)
+            if symbolic_execution.check() == SatResult::Sat {
+                if let Some(model) = symbolic_execution.solver.get_model() {
                     let values: Vec<String> = felt252_arguments
                         .iter()
                         .zip(z3_variables.iter())
@@ -84,16 +101,44 @@ pub fn generate_test_cases_for_function(
                             )
                         })
                         .collect();
-                    let values_str = format!("{:?}\n", values);
+                    let values_str = format!("{}", values.join(", "));
                     if unique_results.insert(values_str.clone()) {
-                        result.push_str(&values_str);
+                        result.push_str(&format!("{}\n", values_str));
                     }
                 }
             }
-            SatResult::Unsat | SatResult::Unknown => {
-                let non_solvable_str = "non solvable\n".to_string();
-                if unique_results.insert(non_solvable_str.clone()) {
-                    result.push_str(&non_solvable_str);
+
+            // Now generate test cases where the value is not equal to 0
+            for (operand, _) in &zero_constraints {
+                // Create a fresh solver for the non-zero case
+                let non_zero_solver = Solver::new(&context);
+
+                // Re-apply all other constraints except the zero-equality one
+                for constraint in &other_constraints {
+                    non_zero_solver.assert(constraint);
+                }
+
+                // Add a constraint to force the operand to be not equal to 0
+                non_zero_solver.assert(&operand._eq(&Int::from_i64(&context, 0)).not());
+
+                if non_zero_solver.check() == SatResult::Sat {
+                    if let Some(model) = non_zero_solver.get_model() {
+                        let values: Vec<String> = felt252_arguments
+                            .iter()
+                            .zip(z3_variables.iter())
+                            .map(|((arg_name, _), var)| {
+                                format!(
+                                    "{}: {}",
+                                    arg_name,
+                                    model.eval(var, true).unwrap().to_string()
+                                )
+                            })
+                            .collect();
+                        let values_str = format!("[{}]", values.join(", "));
+                        if unique_results.insert(values_str.clone()) {
+                            result.push_str(&format!("{}\n", values_str));
+                        }
+                    }
                 }
             }
         }
