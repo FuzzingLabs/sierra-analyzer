@@ -37,7 +37,7 @@ impl Detector for TestsGeneratorDetector {
         DetectorType::INFORMATIONAL
     }
 
-    /// Returns all the functions names
+    /// Returns the generated unit tests for the function if they exist
     fn detect(&mut self, decompiler: &mut Decompiler) -> String {
         let mut result = String::new();
 
@@ -57,6 +57,8 @@ impl Detector for TestsGeneratorDetector {
 
             // If a function name was found, proceed with the mutable borrow
             if let Some(function_name) = function_name {
+
+                // Add the test cases to the result
                 let test_cases = generate_test_cases_for_function(
                     function,
                     decompiler.declared_libfuncs_names.clone(),

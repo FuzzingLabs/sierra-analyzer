@@ -134,7 +134,7 @@ pub fn generate_test_cases_for_function(
                                 )
                             })
                             .collect();
-                        let values_str = format!("[{}]", values.join(", "));
+                        let values_str = format!("{}", values.join(", "));
                         if unique_results.insert(values_str.clone()) {
                             result.push_str(&format!("{}\n", values_str));
                         }
