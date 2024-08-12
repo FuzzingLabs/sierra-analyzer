@@ -7,9 +7,11 @@ Sierra-Analyzer is a security toolkit for analyzing Sierra files.
 3) [Analyze a remote contract](#analyze-a-remote-contract)
 4) [Print the contract's Control-Flow Graph](#print-the-contracts-control-flow-graph)
 5) [Print the contract's Callgraph](#print-the-contracts-callgraph)
-6) [Run the detectors](#print-the-contracts-callgraph)
-7) [Use it as a library](#print-the-contracts-callgraph)
+6) [Run the detectors](#run-the-detectors)
+7) [Use the symbolic execution to generate unit tests](#use-the-symbolic-execution-to-generate-unit-tests)
 8) [Improve the decompiler output using LLMs](#print-the-contracts-callgraph)
+9) [Use it as a library](#print-the-contracts-callgraph)
+
 
 #### Project structure 
 
@@ -96,15 +98,45 @@ cargo run -- -f ./examples/sierra/fib_array.sierra  -d
 	<img src="/doc/images/detectors-output.png" height="130px"/>
 </p>
 
-#### Use it as a library 
+#### Use the symbolic execution to generate unit tests
 
-It is also possible to use the `sierra-analyzer-lib` library to decompile serialised or unserialised Sierra files.
+##### 1) Using the Tests generator detector
 
-Examples can be found [here](/lib/examples/).
+Symbolic execution can be used to generate unit tests for the functions that take `felt252` arguments as input. 
+
+For example the file [symbolic_execution_test.sierra](https://github.com/FuzzingLabs/sierra-analyzer/blob/master/examples/sierra/symbolic_execution_test.sierra) contains a main function that takes four `felt252` arguments *v0*, *v1*, *v2* and *v3*. The function includes four conditions that check if `v0 == 102`, `v1 == 117`, `v2 == 122` and `v3 == 122` which correspond to the ASCII values for the letters *f*, *u*, *z*, and *z*, respectively.
+
+When running the detectors we can generate test cases for each path in the function with the **Tests generator detector**:
+
+
+```
+cargo run -- -f ./examples/sierra/fib_array.sierra  -d
+
+[...]
+
+[Informational] Tests generator
+        - symbolic::symbolic::symbolic_execution_test : 
+        - v0: 102, v1: 0, v2: 0, v3: 0
+        - v0: 103, v1: 0, v2: 0, v3: 0
+        - v0: 102, v1: 117, v2: 0, v3: 0
+        - v0: 0, v1: 118, v2: 0, v3: 0
+        - v0: 102, v1: 117, v2: 122, v3: 0
+        - v0: 0, v1: 0, v2: 123, v3: 0
+        - v0: 102, v1: 117, v2: 122, v3: 122
+        - v0: 0, v1: 0, v2: 0, v3: 123
+```
+
+##### 2) Using the library
+
+The tests generator can also be used [with the library](https://github.com/FuzzingLabs/sierra-analyzer/blob/master/lib/examples/tests_generator.rs).
 
 #### Improve the decompiler output using LLMs
 
 [Here](/doc/llm-decompilation.md) is a tutorial on how to improve the decompiler output using LLMs.
+
+#### Use it as a library 
+
+It is also possible to use the `sierra-analyzer-lib` library to decompile serialised or unserialised Sierra files.
 
 #### Features
 
