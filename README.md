@@ -1,16 +1,19 @@
+<div align="center">
+
 ### Sierra Analyzer
 
-Sierra-Analyzer is a security toolkit for analyzing Sierra files.
+Sierra Analyzer is a security toolkit designed for analyzing Sierra files. It includes: a decompiler, a call graph</br> generator, a control-flow graph generator, and various security detectors.
+</div>
 
-1) [Project structure](#project-structure)
-2) [Decompile a Sierra file](#decompile-a-sierra-file)
-3) [Analyze a remote contract](#analyze-a-remote-contract)
-4) [Print the contract's Control-Flow Graph](#print-the-contracts-control-flow-graph)
-5) [Print the contract's Callgraph](#print-the-contracts-callgraph)
-6) [Run the detectors](#run-the-detectors)
-7) [Use the symbolic execution to generate unit tests](#use-the-symbolic-execution-to-generate-unit-tests)
-8) [Improve the decompiler output using LLMs](#print-the-contracts-callgraph)
-9) [Use it as a library](#print-the-contracts-callgraph)
+- [Project structure](#project-structure)
+- [Decompile a Sierra file](#decompile-a-sierra-file)
+- [Analyze a remote contract](#analyze-a-remote-contract)
+- [Print the contract's Control-Flow Graph](#print-the-contracts-control-flow-graph)
+- [Print the contract's Callgraph](#print-the-contracts-callgraph)
+- [Run the detectors](#run-the-detectors)
+- [Use the symbolic execution to generate unit tests](#use-the-symbolic-execution-to-generate-unit-tests)
+- [Improve the decompiler output using LLMs](#print-the-contracts-callgraph)
+- [Use it as a library](#print-the-contracts-callgraph)
 
 
 #### Project structure 
