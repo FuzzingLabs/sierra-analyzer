@@ -15,7 +15,7 @@ use crate::decompiler::libfuncs_patterns::{
 };
 use crate::{extract_parameters, parse_element_name_with_fallback};
 
-/// Converts a SierraStatement to a Z3 constraint, or returns None if not applicable.
+/// Converts a SierraStatement to a Z3 constraint, or returns None if not applicable
 pub fn sierra_statement_to_constraint<'ctx>(
     statement: &SierraStatement,
     context: &'ctx Context,
@@ -262,7 +262,7 @@ fn generate_zero_test_cases(
                 result.push_str(&format!("{}\n", values_str));
             }
         }
-    }
+    }  
 }
 
 /// Generates test cases where the value is not equal to 0.

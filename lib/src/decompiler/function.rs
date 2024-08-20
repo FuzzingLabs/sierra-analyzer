@@ -1,9 +1,11 @@
 use colored::*;
 use num_bigint::BigInt;
 
+use cairo_lang_sierra::ids::VarId;
 use cairo_lang_sierra::program::BranchTarget;
 use cairo_lang_sierra::program::GenFunction;
 use cairo_lang_sierra::program::GenStatement;
+use cairo_lang_sierra::program::Invocation;
 use cairo_lang_sierra::program::StatementIdx;
 
 use crate::decompiler::cfg::ControlFlowGraph;
@@ -59,63 +61,76 @@ impl SierraStatement {
         declared_types_names: Vec<String>,
     ) -> Option<String> {
         match &self.statement {
-            // Return statements
-            GenStatement::Return(vars) => {
-                let mut formatted = "return".red().to_string();
-                formatted.push_str(" (");
-                for (index, var) in vars.iter().enumerate() {
-                    if index > 0 {
-                        formatted.push_str(", ");
-                    }
-                    formatted.push_str(&format!("v{}", var.id));
-                }
-                formatted.push_str(")");
-                Some(formatted)
-            }
-            // Invocation statements
-            GenStatement::Invocation(invocation) => {
-                // Try to get the debug name of the libfunc_id
-                // We use `parse_element_name_with_fallback` and not `parse_element_name` because
-                // we try to match the libfunc id with it's corresponding name if it's a remote contract
-                let libfunc_id = parse_element_name_with_fallback!(
-                    invocation.libfunc_id,
-                    declared_libfuncs_names
-                );
-
-                if !Self::is_function_allowed(&libfunc_id, verbose) {
-                    return None; // Skip formatting if function is not allowed
-                }
-                let libfunc_id_str = libfunc_id.blue();
-
-                let parameters = extract_parameters!(invocation.args);
-                let assigned_variables = extract_parameters!(&invocation
-                    .branches
-                    .first()
-                    .map(|branch| &branch.results)
-                    .unwrap_or(&vec![]));
-                let assigned_variables_str = if !assigned_variables.is_empty() {
-                    assigned_variables.join(", ")
-                } else {
-                    String::new()
-                };
-
-                if STORE_TEMP_REGEX.is_match(&libfunc_id)
-                    && assigned_variables_str == parameters.join(", ")
-                    // Print the redundant store_temp in the verbose output
-                    && !verbose
-                {
-                    return None; // Do not format if it's a redundant store_temp
-                }
-
-                Some(Self::invocation_formatting(
-                    &assigned_variables_str,
-                    &libfunc_id_str,
-                    &parameters,
-                    &verbose,
-                    &declared_types_names,
-                ))
-            }
+            GenStatement::Return(vars) => self.format_return_statement(vars),
+            GenStatement::Invocation(invocation) => self.format_invocation_statement(
+                invocation,
+                verbose,
+                declared_libfuncs_names,
+                declared_types_names,
+            ),
         }
+    }
+
+    /// Formats a return statement
+    fn format_return_statement(&self, vars: &Vec<VarId>) -> Option<String> {
+        let mut formatted = "return".red().to_string();
+        formatted.push_str(" (");
+        for (index, var) in vars.iter().enumerate() {
+            if index > 0 {
+                formatted.push_str(", ");
+            }
+            formatted.push_str(&format!("v{}", var.id));
+        }
+        formatted.push_str(")");
+        Some(formatted)
+    }
+
+    /// Formats an invocation statement
+    fn format_invocation_statement(
+        &self,
+        invocation: &Invocation,
+        verbose: bool,
+        declared_libfuncs_names: Vec<String>,
+        declared_types_names: Vec<String>,
+    ) -> Option<String> {
+        // Try to get the debug name of the libfunc_id
+        // We use `parse_element_name_with_fallback` and not `parse_element_name` because
+        // we try to match the libfunc id with it's corresponding name if it's a remote contract
+        let libfunc_id =
+            parse_element_name_with_fallback!(invocation.libfunc_id, declared_libfuncs_names);
+
+        if !Self::is_function_allowed(&libfunc_id, verbose) {
+            return None; // Skip formatting if function is not allowed
+        }
+        let libfunc_id_str = libfunc_id.blue();
+
+        let parameters = extract_parameters!(invocation.args);
+        let assigned_variables = extract_parameters!(&invocation
+            .branches
+            .first()
+            .map(|branch| &branch.results)
+            .unwrap_or(&vec![]));
+        let assigned_variables_str = if !assigned_variables.is_empty() {
+            assigned_variables.join(", ")
+        } else {
+            String::new()
+        };
+
+        if STORE_TEMP_REGEX.is_match(&libfunc_id)
+        && assigned_variables_str == parameters.join(", ")
+        // Print the redundant store_temp in the verbose output
+        && !verbose
+        {
+            return None; // Do not format if it's a redundant store_temp
+        }
+
+        Some(Self::invocation_formatting(
+            &assigned_variables_str,
+            &libfunc_id_str,
+            &parameters,
+            &verbose,
+            &declared_types_names,
+        ))
     }
 
     /// Checks if the given function name is allowed to be included in the formatted statement
@@ -327,76 +342,25 @@ impl SierraStatement {
         &self,
         declared_libfuncs_names: Vec<String>,
     ) -> Option<SierraConditionalBranch> {
+        // Check if the statement is a conditional branch
         if self.is_conditional_branch {
+            // Match the statement to an invocation
             if let GenStatement::Invocation(invocation) = &self.statement {
-                // Statement
+                // Clone the statement
                 let statement = self.statement.clone();
 
-                // Function name
-                let libfunc_id_str = invocation
-                    .libfunc_id
-                    .debug_name
-                    .as_ref()
-                    .map(|name| name.to_string())
-                    // If the debug name is not present, try to get the name from declared_libfuncs_names
-                    .or_else(|| {
-                        declared_libfuncs_names
-                            .get(invocation.libfunc_id.id as usize)
-                            .map(|name| name.to_string())
-                            // If neither the debug name nor the name from declared_libfuncs_names is present,
-                            // format the id as a string
-                            .or_else(|| Some(format!("[{}]", invocation.libfunc_id.id)))
-                    })
-                    .unwrap();
+                // Get the function name
+                let libfunc_id_str = Self::get_function_name(invocation, &declared_libfuncs_names);
 
-                // Parameters
+                // Extract parameters
                 let parameters = extract_parameters!(invocation.args);
 
-                // Fallthrough
-                let fallthrough = invocation
-                    .branches
-                    .iter()
-                    .any(|branch| matches!(branch.target, BranchTarget::Fallthrough));
+                // Check for fallthrough branches
+                let fallthrough = Self::has_fallthrough(invocation);
 
-                // Initialize edge offsets
-                let mut edge_1_offset: Option<u32> = None;
-                let mut edge_2_offset: Option<u32> = None;
-
-                // Handle fallthrough case
-                if fallthrough {
-                    if let Some(statement_idx) = invocation.branches.iter().find_map(|branch| {
-                        if let BranchTarget::Statement(statement_idx) = &branch.target {
-                            Some(statement_idx.0 as u32)
-                        } else {
-                            None
-                        }
-                    }) {
-                        edge_1_offset = Some(statement_idx);
-                    }
-                } else {
-                    // Handle non-fallthrough case
-                    if let Some(first_branch) = invocation.branches.iter().next() {
-                        if let BranchTarget::Statement(statement_idx) = &first_branch.target {
-                            edge_1_offset = Some(statement_idx.0 as u32);
-                        }
-                    }
-
-                    // Set edge_2_offset if there are two branches pointing to a statement_idx
-                    if let Some(second_statement_idx) = invocation
-                        .branches
-                        .iter()
-                        .filter_map(|branch| {
-                            if let BranchTarget::Statement(statement_idx) = &branch.target {
-                                Some(statement_idx.0 as u32)
-                            } else {
-                                None
-                            }
-                        })
-                        .nth(1)
-                    {
-                        edge_2_offset = Some(second_statement_idx);
-                    }
-                }
+                // Get the edge offsets
+                let (edge_1_offset, edge_2_offset) =
+                    Self::get_edge_offsets(invocation, fallthrough);
 
                 // Create and return SierraConditionalBranch instance
                 return Some(SierraConditionalBranch::new(
@@ -410,7 +374,74 @@ impl SierraStatement {
             }
         }
 
+        // Return None if the statement is not a conditional branch
         None
+    }
+
+    /// Extracts the function name from the invocation
+    fn get_function_name(invocation: &Invocation, declared_libfuncs_names: &Vec<String>) -> String {
+        // Try to get the debug name first
+        invocation
+            .libfunc_id
+            .debug_name
+            .as_ref()
+            .map(|name| name.to_string())
+            // If the debug name is not present, try to get the name from declared_libfuncs_names
+            .or_else(|| {
+                declared_libfuncs_names
+                    .get(invocation.libfunc_id.id as usize)
+                    .map(|name| name.to_string())
+                    // If neither the debug name nor the name from declared_libfuncs_names is present,
+                    // format the id as a string
+                    .or_else(|| Some(format!("[{}]", invocation.libfunc_id.id)))
+            })
+            .unwrap()
+    }
+
+    /// Checks if any branch in the invocation is a fallthrough branch
+    fn has_fallthrough(invocation: &Invocation) -> bool {
+        invocation
+            .branches
+            .iter()
+            .any(|branch| matches!(branch.target, BranchTarget::Fallthrough))
+    }
+
+    /// Determines the edge offsets based on whether there is a fallthrough branch or not
+    fn get_edge_offsets(invocation: &Invocation, fallthrough: bool) -> (Option<u32>, Option<u32>) {
+        if fallthrough {
+            // Handle fallthrough case
+            let edge_1_offset = invocation.branches.iter().find_map(|branch| {
+                if let BranchTarget::Statement(statement_idx) = &branch.target {
+                    Some(statement_idx.0 as u32)
+                } else {
+                    None
+                }
+            });
+            (edge_1_offset, None)
+        } else {
+            // Handle non-fallthrough case
+            let edge_1_offset = invocation.branches.iter().next().and_then(|branch| {
+                if let BranchTarget::Statement(statement_idx) = &branch.target {
+                    Some(statement_idx.0 as u32)
+                } else {
+                    None
+                }
+            });
+
+            let edge_2_offset = invocation
+                .branches
+                .iter()
+                .filter_map(|branch| {
+                    if let BranchTarget::Statement(statement_idx) = &branch.target {
+                        Some(statement_idx.0 as u32)
+                    } else {
+                        None
+                    }
+                })
+                .nth(1);
+
+            (edge_1_offset, edge_2_offset)
+        }
     }
 }
 
