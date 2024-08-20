@@ -15,6 +15,126 @@ use crate::decompiler::libfuncs_patterns::{
 };
 use crate::{extract_parameters, parse_element_name_with_fallback};
 
+/// Converts a SierraStatement to a Z3 constraint, or returns None if not applicable
+pub fn sierra_statement_to_constraint<'ctx>(
+    statement: &SierraStatement,
+    context: &'ctx Context,
+    declared_libfuncs_names: Vec<String>,
+) -> Option<Bool<'ctx>> {
+    match &statement.statement {
+        GenStatement::Invocation(invocation) => {
+            let libfunc_id_str =
+                parse_element_name_with_fallback!(invocation.libfunc_id, declared_libfuncs_names);
+            let parameters = extract_parameters!(invocation.args);
+            let assigned_variables = invocation
+                .branches
+                .first()
+                .map(|branch| extract_parameters!(&branch.results))
+                .unwrap_or_else(Vec::new);
+
+            handle_invocation(context, &libfunc_id_str, &parameters, &assigned_variables)
+        }
+        _ => None,
+    }
+}
+
+/// Handles an invocation by trying to match it to known patterns.
+fn handle_invocation<'ctx>(
+    context: &'ctx Context,
+    libfunc_id_str: &str,
+    parameters: &[String],
+    assigned_variables: &[String],
+) -> Option<Bool<'ctx>> {
+    handle_duplication(context, libfunc_id_str, assigned_variables)
+        .or_else(|| handle_constant_assignment(context, libfunc_id_str, assigned_variables))
+        .or_else(|| handle_is_zero(context, libfunc_id_str, parameters))
+        .or_else(|| {
+            handle_arithmetic_operations(context, libfunc_id_str, parameters, assigned_variables)
+        })
+}
+
+/// Handles variable duplication in Sierra statements
+fn handle_duplication<'ctx>(
+    context: &'ctx Context,
+    libfunc_id_str: &str,
+    assigned_variables: &[String],
+) -> Option<Bool<'ctx>> {
+    if DUP_REGEX.is_match(libfunc_id_str) {
+        let first_var_z3 = Int::new_const(context, assigned_variables[0].clone());
+        let second_var_z3 = Int::new_const(context, assigned_variables[1].clone());
+        return Some(second_var_z3._eq(&first_var_z3).into());
+    }
+    None
+}
+
+/// Handles constant assignment in Sierra statements
+fn handle_constant_assignment<'ctx>(
+    context: &'ctx Context,
+    libfunc_id_str: &str,
+    assigned_variables: &[String],
+) -> Option<Bool<'ctx>> {
+    for regex in CONST_REGEXES.iter() {
+        if let Some(captures) = regex.captures(libfunc_id_str) {
+            if let Some(const_value) = captures.name("const") {
+                let const_value_str = const_value.as_str();
+                if let Ok(const_value_u64) = u64::from_str(const_value_str) {
+                    if !assigned_variables.is_empty() {
+                        let assigned_var_z3 = Int::new_const(context, &*assigned_variables[0]);
+                        let const_value_z3 = Int::from_u64(context, const_value_u64);
+                        return Some(assigned_var_z3._eq(&const_value_z3).into());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Handles zero check in Sierra statements
+fn handle_is_zero<'ctx>(
+    context: &'ctx Context,
+    libfunc_id_str: &str,
+    parameters: &[String],
+) -> Option<Bool<'ctx>> {
+    if IS_ZERO_REGEX.is_match(libfunc_id_str) {
+        let operand = Int::new_const(context, parameters[0].clone());
+        let constraint = operand._eq(&Int::from_i64(context, 0));
+        return Some(constraint);
+    }
+    None
+}
+
+/// Handles arithmetic operations in Sierra statements
+fn handle_arithmetic_operations<'ctx>(
+    context: &'ctx Context,
+    libfunc_id_str: &str,
+    parameters: &[String],
+    assigned_variables: &[String],
+) -> Option<Bool<'ctx>> {
+    let operator = if ADDITION_REGEX.is_match(libfunc_id_str) {
+        "+"
+    } else if SUBSTRACTION_REGEX.is_match(libfunc_id_str) {
+        "-"
+    } else if MULTIPLICATION_REGEX.is_match(libfunc_id_str) {
+        "*"
+    } else {
+        return None;
+    };
+
+    let assigned_variable = Int::new_const(context, assigned_variables[0].clone());
+    let first_operand = Int::new_const(context, parameters[0].clone());
+    let second_operand = Int::new_const(context, parameters[1].clone());
+
+    let constraint = match operator {
+        "+" => assigned_variable._eq(&(first_operand + second_operand)),
+        "-" => assigned_variable._eq(&(first_operand - second_operand)),
+        "*" => assigned_variable._eq(&(first_operand * second_operand)),
+        _ => return None,
+    };
+
+    Some(constraint)
+}
+
 /// Generates test cases for a single function
 pub fn generate_test_cases_for_function(
     function: &mut Function,
@@ -88,149 +208,115 @@ pub fn generate_test_cases_for_function(
             }
 
             // Check if the constraints are satisfiable (value == 0)
-            if symbolic_execution.check() == SatResult::Sat {
-                if let Some(model) = symbolic_execution.solver.get_model() {
-                    let values: Vec<String> = felt252_arguments
-                        .iter()
-                        .zip(z3_variables.iter())
-                        .map(|((arg_name, _), var)| {
-                            format!(
-                                "{}: {}",
-                                arg_name,
-                                model.eval(var, true).unwrap().to_string()
-                            )
-                        })
-                        .collect();
-                    let values_str = format!("{}", values.join(", "));
-                    if unique_results.insert(values_str.clone()) {
-                        result.push_str(&format!("{}\n", values_str));
-                    }
-                }
-            }
+            generate_zero_test_cases(
+                &mut result,
+                &mut unique_results,
+                &symbolic_execution,
+                &felt252_arguments,
+                &z3_variables,
+            );
 
             // Now generate test cases where the value is not equal to 0
-            for (operand, _) in &zero_constraints {
-                // Create a fresh solver for the non-zero case
-                let non_zero_solver = Solver::new(&context);
-
-                // Re-apply all other constraints except the zero-equality one
-                for constraint in &other_constraints {
-                    non_zero_solver.assert(constraint);
-                }
-
-                // Add a constraint to force the operand to be not equal to 0
-                non_zero_solver.assert(&operand._eq(&Int::from_i64(&context, 0)).not());
-
-                if non_zero_solver.check() == SatResult::Sat {
-                    if let Some(model) = non_zero_solver.get_model() {
-                        let values: Vec<String> = felt252_arguments
-                            .iter()
-                            .zip(z3_variables.iter())
-                            .map(|((arg_name, _), var)| {
-                                format!(
-                                    "{}: {}",
-                                    arg_name,
-                                    model.eval(var, true).unwrap().to_string()
-                                )
-                            })
-                            .collect();
-                        let values_str = format!("{}", values.join(", "));
-                        if unique_results.insert(values_str.clone()) {
-                            result.push_str(&format!("{}\n", values_str));
-                        }
-                    }
-                }
-            }
+            generate_non_zero_test_cases(
+                &mut result,
+                &mut unique_results,
+                &context,
+                &felt252_arguments,
+                &z3_variables,
+                &zero_constraints,
+                &other_constraints,
+            );
         }
     }
 
     result.trim_end().to_string()
 }
 
+/// Generates test cases where the constraints are satisfiable (value == 0).
+fn generate_zero_test_cases(
+    result: &mut String,
+    unique_results: &mut HashSet<String>,
+    symbolic_execution: &SymbolicExecution,
+    felt252_arguments: &[(String, String)],
+    z3_variables: &[Int],
+) {
+    // Check if the constraints are satisfiable
+    if symbolic_execution.check() == SatResult::Sat {
+        // Get the model from the solver
+        if let Some(model) = symbolic_execution.solver.get_model() {
+            // Evaluate the variables and format the results
+            let values: Vec<String> = felt252_arguments
+                .iter()
+                .zip(z3_variables.iter())
+                .map(|((arg_name, _), var)| {
+                    format!(
+                        "{}: {}",
+                        arg_name,
+                        model.eval(var, true).unwrap().to_string()
+                    )
+                })
+                .collect();
+            let values_str = format!("{}", values.join(", "));
+            // Add the result to the unique results set and the result string
+            if unique_results.insert(values_str.clone()) {
+                result.push_str(&format!("{}\n", values_str));
+            }
+        }
+    }
+}
+
+/// Generates test cases where the value is not equal to 0.
+fn generate_non_zero_test_cases(
+    result: &mut String,
+    unique_results: &mut HashSet<String>,
+    context: &Context,
+    felt252_arguments: &[(String, String)],
+    z3_variables: &[Int],
+    zero_constraints: &[(Int, Bool)],
+    other_constraints: &[Bool],
+) {
+    for (operand, _) in zero_constraints {
+        // Create a fresh solver for the non-zero case
+        let non_zero_solver = Solver::new(context);
+
+        // Re-apply all other constraints except the zero-equality one
+        for constraint in other_constraints {
+            non_zero_solver.assert(constraint);
+        }
+
+        // Add a constraint to force the operand to be not equal to 0
+        non_zero_solver.assert(&operand._eq(&Int::from_i64(context, 0)).not());
+
+        // Check if the constraints are satisfiable
+        if non_zero_solver.check() == SatResult::Sat {
+            // Get the model from the solver
+            if let Some(model) = non_zero_solver.get_model() {
+                // Evaluate the variables and format the results
+                let values: Vec<String> = felt252_arguments
+                    .iter()
+                    .zip(z3_variables.iter())
+                    .map(|((arg_name, _), var)| {
+                        format!(
+                            "{}: {}",
+                            arg_name,
+                            model.eval(var, true).unwrap().to_string()
+                        )
+                    })
+                    .collect();
+                let values_str = format!("{}", values.join(", "));
+                // Add the result to the unique results set and the result string
+                if unique_results.insert(values_str.clone()) {
+                    result.push_str(&format!("{}\n", values_str));
+                }
+            }
+        }
+    }
+}
+
 /// A struct that represents a symbolic execution solver
 #[derive(Debug)]
 pub struct SymbolicExecution<'a> {
     pub solver: Solver<'a>,
-}
-
-/// Converts a SierraStatement to a Z3 constraint, or returns None if not applicable
-pub fn sierra_statement_to_constraint<'ctx>(
-    statement: &SierraStatement,
-    context: &'ctx Context,
-    declared_libfuncs_names: Vec<String>,
-) -> Option<Bool<'ctx>> {
-    let inner_statement = &statement.statement;
-    match inner_statement {
-        GenStatement::Invocation(invocation) => {
-            // Extract libfunc name, parameters & assigned variables
-            let libfunc_id_str =
-                parse_element_name_with_fallback!(invocation.libfunc_id, declared_libfuncs_names);
-            let parameters = extract_parameters!(invocation.args);
-            let assigned_variables = extract_parameters!(&invocation
-                .branches
-                .first()
-                .map(|branch| &branch.results)
-                .unwrap_or(&vec![]));
-
-            // Handling variables duplications
-            if DUP_REGEX.is_match(&libfunc_id_str) {
-                let first_var_z3 = Int::new_const(context, assigned_variables[0].clone());
-                let second_var_z3 = Int::new_const(context, assigned_variables[1].clone());
-                return Some(second_var_z3._eq(&first_var_z3).into());
-            }
-
-            // Handling constant assignments
-            for regex in CONST_REGEXES.iter() {
-                if let Some(captures) = regex.captures(&libfunc_id_str) {
-                    if let Some(const_value) = captures.name("const") {
-                        // Convert string to a u64 to avoid overflow
-                        let const_value_str = const_value.as_str();
-                        if let Ok(const_value_u64) = u64::from_str(const_value_str) {
-                            if !assigned_variables.is_empty() {
-                                let assigned_var_z3 =
-                                    Int::new_const(context, &*assigned_variables[0]);
-                                let const_value_z3 = Int::from_u64(context, const_value_u64);
-                                return Some(assigned_var_z3._eq(&const_value_z3).into());
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Handle conditions
-            if IS_ZERO_REGEX.is_match(&libfunc_id_str) {
-                let operand = Int::new_const(context, parameters[0].clone());
-                let constraint = operand._eq(&Int::from_i64(context, 0));
-                return Some(constraint);
-            }
-
-            // Handling arithmetic operations
-            let operator = if ADDITION_REGEX.is_match(&libfunc_id_str) {
-                "+"
-            } else if SUBSTRACTION_REGEX.is_match(&libfunc_id_str) {
-                "-"
-            } else if MULTIPLICATION_REGEX.is_match(&libfunc_id_str) {
-                "*"
-            } else {
-                return None;
-            };
-
-            let assigned_variable = Int::new_const(context, assigned_variables[0].clone());
-            let first_operand = Int::new_const(context, parameters[0].clone());
-            let second_operand = Int::new_const(context, parameters[1].clone());
-
-            let constraint = match operator {
-                "+" => assigned_variable._eq(&(first_operand + second_operand)),
-                "-" => assigned_variable._eq(&(first_operand - second_operand)),
-                "*" => assigned_variable._eq(&(first_operand * second_operand)),
-                _ => return None,
-            };
-
-            return Some(constraint);
-        }
-        _ => {}
-    }
-    None
 }
 
 impl<'a> SymbolicExecution<'a> {
