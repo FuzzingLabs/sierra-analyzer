@@ -1,5 +1,5 @@
-use sierra_analyzer_lib::sierra_program::SierraProgram;
 use cairo_lang_starknet_classes::contract_class::ContractClass;
+use sierra_analyzer_lib::sierra_program::SierraProgram;
 use std::fs;
 use test_case::test_case;
 

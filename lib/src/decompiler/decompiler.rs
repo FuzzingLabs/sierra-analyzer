@@ -50,7 +50,7 @@ impl<'a> Decompiler<'a> {
             current_function: None,
             declared_types_names: Vec::new(),
             declared_libfuncs_names: Vec::new(),
-            verbose: verbose,
+            verbose,
         }
     }
 
