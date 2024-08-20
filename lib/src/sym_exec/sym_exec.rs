@@ -262,7 +262,7 @@ fn generate_zero_test_cases(
                 result.push_str(&format!("{}\n", values_str));
             }
         }
-    }  
+    }
 }
 
 /// Generates test cases where the value is not equal to 0.
