@@ -22,10 +22,10 @@ Sierra Analyzer is a security toolkit designed for analyzing Sierra files. It in
 
 ```
 .
-├── doc               		 # Documentation files
-├── examples                     # Sierra & Contrat class samples files
-├── lib               	         # sierra-analyzer library
-├── sierra-decompiler            # Sierra decompiler tool (based on sierra-analyzer library)
+├── doc                  # Documentation files
+├── examples             # Sierra & Contrat class samples files
+├── lib                  # sierra-analyzer library
+├── bin                  # Binaries directory containing Sierra decompiler tool (based on sierra-analyzer library) & Tests generator
 └── README.md
 ```
 
