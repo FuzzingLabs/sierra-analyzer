@@ -313,6 +313,29 @@ fn generate_non_zero_test_cases(
     }
 }
 
+/// Parses the result of generate_test_cases_for_function and returns a vector of vectors of integer inputs
+/// TODO : Reverse the logic and generate formatted testcases from the integers vectors
+pub fn get_integers_inputs(test_cases: &str) -> Vec<Vec<i64>> {
+    let mut result = Vec::new();
+    let unique_results: HashSet<String> = test_cases.lines().map(|line| line.to_string()).collect();
+
+    for line in unique_results {
+        let mut line_inputs = Vec::new();
+        let parts: Vec<&str> = line.split(", ").collect();
+        for part in parts {
+            let key_value: Vec<&str> = part.split(": ").collect();
+            if key_value.len() == 2 {
+                if let Ok(value) = i64::from_str(key_value[1]) {
+                    line_inputs.push(value);
+                }
+            }
+        }
+        result.push(line_inputs);
+    }
+
+    result
+}
+
 /// A struct that represents a symbolic execution solver
 #[derive(Debug)]
 pub struct SymbolicExecution<'a> {
