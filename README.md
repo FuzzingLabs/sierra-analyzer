@@ -115,11 +115,9 @@ When running the detectors we can generate test cases for each path in the funct
 
 
 ```
-cargo run -- -f ./examples/sierra/fib_array.sierra  -d
+cargo run -- -f ./examples/sierra/symbolic_execution_test.sierra -d --detector-names tests
 
-[...]
-
-[Informational] Tests generator
+[Testing] Tests generator
         - symbolic::symbolic::symbolic_execution_test : 
         - v0: 102, v1: 0, v2: 0, v3: 0
         - v0: 103, v1: 0, v2: 0, v3: 0

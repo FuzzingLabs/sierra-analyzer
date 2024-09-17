@@ -234,10 +234,13 @@ fn handle_detectors(decompiler: &mut Decompiler, detector_names: Vec<String>) {
 
     // Run the specified detectors
     for detector in detectors.iter_mut() {
-        // Skip TESTING detectors and detectors not in the provided names
-        if detector.detector_type() == DetectorType::TESTING
-            || !detector_names.is_empty() && !detector_names.contains(&detector.id().to_string())
-        {
+        // Skip TESTING detectors if no specific detector names are provided
+        if detector_names.is_empty() && detector.detector_type() == DetectorType::TESTING {
+            continue;
+        }
+
+        // Skip detectors not in the provided names if names are provided
+        if !detector_names.is_empty() && !detector_names.contains(&detector.id().to_string()) {
             continue;
         }
 
