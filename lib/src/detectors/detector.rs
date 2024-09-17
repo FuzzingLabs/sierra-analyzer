@@ -8,6 +8,7 @@ use crate::decompiler::decompiler::Decompiler;
 pub enum DetectorType {
     INFORMATIONAL,
     SECURITY,
+    TESTING,
 }
 
 impl DetectorType {
@@ -20,6 +21,9 @@ impl DetectorType {
 
             // Security detectors types are blue
             DetectorType::SECURITY => "Security".normal().blue(),
+
+            // Testing detectors types are yellow
+            DetectorType::TESTING => "Testing".normal().yellow(),
         }
     }
 }
