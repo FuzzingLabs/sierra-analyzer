@@ -9,6 +9,7 @@ use tokio;
 
 use cairo_lang_starknet_classes::contract_class::ContractClass;
 use sierra_analyzer_lib::decompiler::decompiler::Decompiler;
+use sierra_analyzer_lib::detectors::detector::DetectorType;
 use sierra_analyzer_lib::detectors::get_detectors;
 use sierra_analyzer_lib::graph::graph::save_svg_graph_to_file;
 use sierra_analyzer_lib::provider::NetworkConfig;
@@ -227,8 +228,13 @@ fn handle_detectors(decompiler: &mut Decompiler) {
     let mut detectors = get_detectors();
     let mut output = String::new();
 
-    // Run all the detectors
+    // Run all the detectors except those of type TESTING
     for detector in detectors.iter_mut() {
+        // Skip TESTING detectors
+        if detector.detector_type() == DetectorType::TESTING {
+            continue;
+        }
+
         let result = detector.detect(decompiler);
         if !result.trim().is_empty() {
             // Each detector output is formatted like

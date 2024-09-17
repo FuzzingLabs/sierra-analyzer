@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use crate::decompiler::decompiler::Decompiler;
 
 /// Possible types of a detector
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum DetectorType {
     INFORMATIONAL,
     SECURITY,
