@@ -54,6 +54,9 @@ impl Detector for FunctionsDetector {
                 if index < total_functions - 1 {
                     result += "\n";
                 }
+
+                // Append the ANSI reset sequence
+                result += &"\x1b[0m".to_string();
             }
         }
         result

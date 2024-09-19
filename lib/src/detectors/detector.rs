@@ -4,10 +4,11 @@ use std::fmt::Debug;
 use crate::decompiler::decompiler::Decompiler;
 
 /// Possible types of a detector
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum DetectorType {
     INFORMATIONAL,
     SECURITY,
+    TESTING,
 }
 
 impl DetectorType {
@@ -20,6 +21,9 @@ impl DetectorType {
 
             // Security detectors types are blue
             DetectorType::SECURITY => "Security".normal().blue(),
+
+            // Testing detectors types are yellow
+            DetectorType::TESTING => "Testing".normal().yellow(),
         }
     }
 }

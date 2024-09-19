@@ -9,6 +9,7 @@ use tokio;
 
 use cairo_lang_starknet_classes::contract_class::ContractClass;
 use sierra_analyzer_lib::decompiler::decompiler::Decompiler;
+use sierra_analyzer_lib::detectors::detector::DetectorType;
 use sierra_analyzer_lib::detectors::get_detectors;
 use sierra_analyzer_lib::graph::graph::save_svg_graph_to_file;
 use sierra_analyzer_lib::provider::NetworkConfig;
@@ -52,8 +53,12 @@ struct Args {
     verbose: bool,
 
     /// Run the detectors
-    #[clap(short, long)]
+    #[clap(short = 'd', long)]
     detectors: bool,
+
+    /// List of detector names to run
+    #[clap(long, use_value_delimiter = true)]
+    detector_names: Vec<String>,
 
     /// Remote contract class address
     #[clap(long, default_value = "")]
@@ -107,7 +112,7 @@ async fn main() {
     }
     // Detectors
     else if args.detectors {
-        handle_detectors(&mut decompiler);
+        handle_detectors(&mut decompiler, args.detector_names);
     }
     // Decompiler (default)
     else {
@@ -223,12 +228,22 @@ fn handle_callgraph(args: &Args, decompiler: &mut Decompiler, file_stem: &str) {
 }
 
 /// Handle the running of detectors and printing their results
-fn handle_detectors(decompiler: &mut Decompiler) {
+fn handle_detectors(decompiler: &mut Decompiler, detector_names: Vec<String>) {
     let mut detectors = get_detectors();
     let mut output = String::new();
 
-    // Run all the detectors
+    // Run the specified detectors
     for detector in detectors.iter_mut() {
+        // Skip TESTING detectors if no specific detector names are provided
+        if detector_names.is_empty() && detector.detector_type() == DetectorType::TESTING {
+            continue;
+        }
+
+        // Skip detectors not in the provided names if names are provided
+        if !detector_names.is_empty() && !detector_names.contains(&detector.id().to_string()) {
+            continue;
+        }
+
         let result = detector.detect(decompiler);
         if !result.trim().is_empty() {
             // Each detector output is formatted like
@@ -249,6 +264,8 @@ fn handle_detectors(decompiler: &mut Decompiler) {
         }
     }
 
-    // Print the detectors result
-    println!("{}", output.trim());
+    // Print the detectors result if not empty
+    if !output.trim().is_empty() {
+        println!("{}", output.trim());
+    }
 }

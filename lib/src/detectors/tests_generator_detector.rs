@@ -32,9 +32,10 @@ impl Detector for TestsGeneratorDetector {
     }
 
     /// Returns the type of the detector
+    /// Detectors in the TESTING category are not displayed by default using the --detector flag
     #[inline]
     fn detector_type(&self) -> DetectorType {
-        DetectorType::INFORMATIONAL
+        DetectorType::TESTING
     }
 
     /// Returns the generated unit tests for the function if they exist
