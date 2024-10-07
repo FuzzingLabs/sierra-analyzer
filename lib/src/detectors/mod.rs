@@ -1,9 +1,11 @@
+pub mod controlled_library_call_detector;
 pub mod detector;
 pub mod functions_detector;
 pub mod statistics_detector;
 pub mod strings_detector;
 pub mod tests_generator_detector;
 
+use crate::detectors::controlled_library_call_detector::ControlledLibraryCallDetector;
 use crate::detectors::detector::Detector;
 use crate::detectors::functions_detector::FunctionsDetector;
 use crate::detectors::statistics_detector::StatisticsDetector;
@@ -27,6 +29,7 @@ pub fn get_detectors() -> Vec<Box<dyn Detector>> {
         FunctionsDetector,
         StringsDetector,
         StatisticsDetector,
-        TestsGeneratorDetector
+        TestsGeneratorDetector,
+        ControlledLibraryCallDetector
     )
 }
