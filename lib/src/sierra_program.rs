@@ -1,13 +1,18 @@
+use cairo_lang_sierra::extensions::core::CoreLibfunc;
+use cairo_lang_sierra::extensions::core::CoreType;
 use cairo_lang_sierra::program::Program;
+use cairo_lang_sierra::program_registry::ProgramRegistry;
 use cairo_lang_sierra::ProgramParser;
 
 use crate::decompiler::decompiler::Decompiler;
 
 /// A struct that represents a Sierra program
-#[derive(Debug)]
 pub struct SierraProgram {
     /// The parsed Sierra program
     program: Program,
+
+    /// Program registry
+    registry: ProgramRegistry<CoreType, CoreLibfunc>,
 }
 
 impl SierraProgram {
@@ -20,12 +25,24 @@ impl SierraProgram {
             }
         };
 
-        SierraProgram { program }
+        let registry = match ProgramRegistry::<CoreType, CoreLibfunc>::new(&program) {
+            Ok(registry) => registry,
+            Err(err) => {
+                panic!("Error creating program registry: {}", err);
+            }
+        };
+
+        SierraProgram { program, registry }
     }
 
     /// Returns a reference to the parsed Sierra program
     pub fn program(&self) -> &Program {
         &self.program
+    }
+
+    /// Returns a reference to the program registry
+    pub fn registry(&self) -> &ProgramRegistry<CoreType, CoreLibfunc> {
+        &self.registry
     }
 
     /// Decompiles the Sierra program and returns a `Decompiler` instance

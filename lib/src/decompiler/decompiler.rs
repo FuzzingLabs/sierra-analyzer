@@ -1,10 +1,13 @@
 use colored::*;
 
+use cairo_lang_sierra::extensions::core::CoreLibfunc;
+use cairo_lang_sierra::extensions::core::CoreType;
 use cairo_lang_sierra::program::GenFunction;
 use cairo_lang_sierra::program::GenericArg;
 use cairo_lang_sierra::program::LibfuncDeclaration;
 use cairo_lang_sierra::program::StatementIdx;
 use cairo_lang_sierra::program::TypeDeclaration;
+use cairo_lang_sierra::program_registry::ProgramRegistry;
 
 use crate::config::GraphConfig;
 use crate::decompiler::cfg::BasicBlock;
@@ -25,6 +28,8 @@ pub struct Decompiler<'a> {
     pub sierra_program: &'a SierraProgram,
     /// Program functions
     pub functions: Vec<Function<'a>>,
+    /// Program registry
+    registry: &'a ProgramRegistry<CoreType, CoreLibfunc>,
     /// Current indentation
     indentation: u32,
     /// Already printed basic blocks (to avoid printing two times the same BB)
@@ -45,6 +50,7 @@ impl<'a> Decompiler<'a> {
         Decompiler {
             sierra_program,
             functions: Vec::new(),
+            registry: sierra_program.registry(),
             indentation: 1,
             printed_blocks: Vec::new(),
             current_function: None,
@@ -52,6 +58,11 @@ impl<'a> Decompiler<'a> {
             declared_libfuncs_names: Vec::new(),
             verbose,
         }
+    }
+
+    /// Returns a reference to the program registry
+    pub fn registry(&self) -> &ProgramRegistry<CoreType, CoreLibfunc> {
+        &self.registry
     }
 
     /// Decompiles the Sierra Program and return the string output
