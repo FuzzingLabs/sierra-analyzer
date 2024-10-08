@@ -445,12 +445,52 @@ impl SierraStatement {
     }
 }
 
+/// Enum representing the type of a function in the system
+/// From https://github.com/crytic/caracal/blob/2267d5d514530e8a187732f1ca3e249c2997b6b6/src/core/function.rs#L26
+#[derive(Clone, Debug)]
+pub enum FunctionType {
+    /// External function defined by the user
+    External,
+    /// View function defined by the user
+    View,
+    /// Private function defined by the user
+    Private,
+    /// Constructor function defined by the user
+    Constructor,
+    /// Event function. These are the events emitted.
+    /// If the function name is ...::ContractStateEventEmitter::emit::<unused_events::unused_events::UnusedEvents::Event, ...>>
+    /// this doesn't explicitly mention the event emitted but rather the generic ::Event
+    /// it happens when the more verbose syntax is used e.g. self.emit(Event::MyUsedEvent(MyUsedEvent { value: amount }));
+    /// While when the other syntax is used it's possible to infer which event has been emitted
+    /// e.g. self.emit(MyUsedEvent { value: amount });
+    /// ContractStateEventEmitter::emit::<unused_events::unused_events::UnusedEvents::MyUsedEvent, ...>
+    Event,
+    /// Function made by the compiler for storage variables
+    /// typically address, read, write
+    Storage,
+    /// Wrapper around an external function made by the compiler
+    Wrapper,
+    /// Function of the core library
+    Core,
+    /// Function of a trait with the ABI attribute that does a call contract
+    AbiCallContract,
+    /// Function of a trait with the ABI attribute that does a library call
+    AbiLibraryCall,
+    /// L1 handler function
+    L1Handler,
+    /// Compiler generated function when a loop is present in a user defined function
+    /// Loop generate functions in core library are still Core type
+    Loop,
+}
+
 /// A struct representing a function in a Sierra program
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Function<'a> {
-    /// The function's `GenFunction` representation
+    // The function's `GenFunction` representation
     pub function: &'a GenFunction<StatementIdx>,
+    // Function type
+    pub function_type: Option<FunctionType>,
     // Function start offset
     pub start_offset: Option<u32>,
     // Function end offset
@@ -470,6 +510,7 @@ impl<'a> Function<'a> {
     pub fn new(function: &'a GenFunction<StatementIdx>) -> Self {
         Self {
             function,
+            function_type: None,
             statements: Vec::new(),
             start_offset: None,
             end_offset: None,
@@ -522,5 +563,11 @@ impl<'a> Function<'a> {
     #[inline]
     pub fn set_arguments(&mut self, arguments: Vec<(String, String)>) {
         self.arguments = arguments;
+    }
+
+    /// Sets the type of the function
+    #[inline]
+    pub fn set_type(&mut self, function_type: FunctionType) {
+        self.function_type = Some(function_type);
     }
 }

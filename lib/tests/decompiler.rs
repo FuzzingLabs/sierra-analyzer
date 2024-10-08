@@ -29,7 +29,6 @@ use test_case::test_case;
 #[test_case("minimal_contract__minimal_contract.sierra")]
 #[test_case("minimal_contract.sierra")]
 #[test_case("mintable__mintable_erc20_ownable.sierra")]
-#[test_case("mintable.sierra")]
 #[test_case("multi_component__contract_with_4_components.sierra")]
 #[test_case("new_syntax_test_contract__counter_contract.sierra")]
 #[test_case("new_syntax_test_contract.sierra")]

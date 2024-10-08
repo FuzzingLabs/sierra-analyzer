@@ -158,16 +158,42 @@ async fn load_remote_program(args: &Args) -> Result<SierraProgram, String> {
 /// Load the Sierra program from a local file
 fn load_local_program(args: &Args) -> Result<SierraProgram, String> {
     let sierra_file = args.sierra_file.as_ref().unwrap();
+
+    // Open the file
     let mut file = File::open(sierra_file).map_err(|e| format!("Failed to open file: {}", e))?;
+
+    // Read the file content into a string
     let mut content = String::new();
     file.read_to_string(&mut content)
         .map_err(|e| format!("Failed to read file: {}", e))?;
 
-    let program_string = serde_json::from_str::<ContractClass>(&content)
-        .ok()
-        .and_then(|prog| prog.extract_sierra_program().ok())
-        .map_or_else(|| content.clone(), |prog_sierra| prog_sierra.to_string());
-    Ok(SierraProgram::new(program_string))
+    // Deserialize the JSON content into a ContractClass
+    let contract_class: Result<ContractClass, _> = serde_json::from_str(&content);
+
+    let program_string = match contract_class {
+        Ok(ref prog) => {
+            // Extract the Sierra program from the ContractClass
+            match prog.extract_sierra_program() {
+                Ok(prog_sierra) => prog_sierra.to_string(),
+                Err(e) => {
+                    eprintln!("Error extracting Sierra program: {}", e);
+                    content.clone()
+                }
+            }
+        }
+        Err(ref _e) => content.clone(),
+    };
+
+    // Initialize a new SierraProgram with the deserialized Sierra program content
+    let mut program = SierraProgram::new(program_string);
+
+    // Set the program ABI if deserialization was successful
+    if let Ok(ref contract_class) = contract_class {
+        let abi = contract_class.abi.clone();
+        program.set_abi(abi.unwrap());
+    }
+
+    Ok(program)
 }
 
 /// Get the file stem based on the remote address or the Sierra file

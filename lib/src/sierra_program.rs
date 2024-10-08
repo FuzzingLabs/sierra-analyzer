@@ -3,6 +3,7 @@ use cairo_lang_sierra::extensions::core::CoreType;
 use cairo_lang_sierra::program::Program;
 use cairo_lang_sierra::program_registry::ProgramRegistry;
 use cairo_lang_sierra::ProgramParser;
+use cairo_lang_starknet_classes::abi::Contract;
 
 use crate::decompiler::decompiler::Decompiler;
 
@@ -13,6 +14,9 @@ pub struct SierraProgram {
 
     /// Program registry
     registry: ProgramRegistry<CoreType, CoreLibfunc>,
+
+    /// Contract ABI
+    pub abi: Option<Contract>,
 }
 
 impl SierraProgram {
@@ -32,7 +36,11 @@ impl SierraProgram {
             }
         };
 
-        SierraProgram { program, registry }
+        SierraProgram {
+            program,
+            registry,
+            abi: None,
+        }
     }
 
     /// Returns a reference to the parsed Sierra program
@@ -48,5 +56,10 @@ impl SierraProgram {
     /// Decompiles the Sierra program and returns a `Decompiler` instance
     pub fn decompiler(&self, verbose: bool) -> Decompiler {
         Decompiler::new(self, verbose)
+    }
+
+    /// Sets the ABI of the contract
+    pub fn set_abi(&mut self, abi: Contract) {
+        self.abi = Some(abi);
     }
 }
