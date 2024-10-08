@@ -110,6 +110,24 @@ impl<'a> Decompiler<'a> {
         output
     }
 
+    /// Returns the functions that are defined by the user
+    /// Constructor - External - View - Private - L1Handler
+    /// From : https://github.com/crytic/caracal/blob/2267d5d514530e8a187732f1ca3e249c2997b6b6/src/core/compilation_unit.rs#L52
+    #[allow(dead_code)]
+    fn functions_user_defined(&self) -> impl Iterator<Item = &Function> {
+        self.functions.iter().filter(|f| {
+            matches!(
+                f.function_type.clone().unwrap(),
+                FunctionType::Constructor
+                    | FunctionType::External
+                    | FunctionType::View
+                    | FunctionType::Private
+                    | FunctionType::L1Handler
+                    | FunctionType::Loop
+            )
+        })
+    }
+
     // Helper function to extract and categorize function names
     fn categorize_function(
         full_name: &str,
