@@ -51,24 +51,26 @@ impl Detector for FunctionsDetector {
                 if let Some(first_space_index) = stripped_prototype.find(' ') {
                     let function_name = &stripped_prototype[..first_space_index];
 
-                    // Put the function type in the output
-                    let function_type = match function.function_type {
-                        Some(FunctionType::External) => "External",
-                        Some(FunctionType::View) => "View",
-                        Some(FunctionType::Private) => "Private",
-                        Some(FunctionType::Constructor) => "Constructor",
-                        Some(FunctionType::Event) => "Event",
-                        Some(FunctionType::Storage) => "Storage",
-                        Some(FunctionType::Wrapper) => "Wrapper",
-                        Some(FunctionType::Core) => "Core",
-                        Some(FunctionType::AbiCallContract) => "AbiCallContract",
-                        Some(FunctionType::AbiLibraryCall) => "AbiLibraryCall",
-                        Some(FunctionType::L1Handler) => "L1Handler",
-                        Some(FunctionType::Loop) => "Loop",
-                        None => "",
-                    };
-
-                    result += &format!("{} : {}", function_type, function_name);
+                    // Put the function type in the output if it exists
+                    if let Some(function_type) = &function.function_type {
+                        let function_type_str = match function_type {
+                            FunctionType::External => "External",
+                            FunctionType::View => "View",
+                            FunctionType::Private => "Private",
+                            FunctionType::Constructor => "Constructor",
+                            FunctionType::Event => "Event",
+                            FunctionType::Storage => "Storage",
+                            FunctionType::Wrapper => "Wrapper",
+                            FunctionType::Core => "Core",
+                            FunctionType::AbiCallContract => "AbiCallContract",
+                            FunctionType::AbiLibraryCall => "AbiLibraryCall",
+                            FunctionType::L1Handler => "L1Handler",
+                            FunctionType::Loop => "Loop",
+                        };
+                        result += &format!("{} : {}", function_type_str, function_name);
+                    } else {
+                        result += function_name;
+                    }
                 }
                 // Add a newline if it's not the last function
                 if index < total_functions - 1 {

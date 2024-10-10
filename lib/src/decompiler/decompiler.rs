@@ -127,15 +127,19 @@ impl<'a> Decompiler<'a> {
     /// From : https://github.com/crytic/caracal/blob/2267d5d514530e8a187732f1ca3e249c2997b6b6/src/core/compilation_unit.rs#L52
     pub fn user_defined_functions(&self) -> impl Iterator<Item = &Function> {
         self.functions.iter().filter(|f| {
-            matches!(
-                f.function_type.clone().unwrap(),
-                FunctionType::Constructor
-                    | FunctionType::External
-                    | FunctionType::View
-                    | FunctionType::Private
-                    | FunctionType::L1Handler
-                    | FunctionType::Loop
-            )
+            if let Some(function_type) = &f.function_type {
+                matches!(
+                    function_type,
+                    FunctionType::Constructor
+                        | FunctionType::External
+                        | FunctionType::View
+                        | FunctionType::Private
+                        | FunctionType::L1Handler
+                        | FunctionType::Loop
+                )
+            } else {
+                false
+            }
         })
     }
 
