@@ -554,7 +554,7 @@ impl<'a> Function<'a> {
         &mut self,
         functions: &[Function],
         registry: &ProgramRegistry<CoreType, CoreLibfunc>,
-    ) {
+    ) -> Result<(), String> {
         // Collect the necessary information during the immutable borrow
         let mut updates = Vec::new();
 
@@ -572,12 +572,19 @@ impl<'a> Function<'a> {
                             parse_element_name!(function.function.id.clone());
 
                         if current_function_name.as_str() == function_name {
-                            updates.push((
-                                function.function_type.clone().unwrap(),
-                                current_function_name.clone(),
-                                statement.clone(),
-                            ));
-                            break;
+                            match function.function_type.clone() {
+                                Some(function_type) => {
+                                    updates.push((
+                                        function_type,
+                                        current_function_name.clone(),
+                                        statement.clone(),
+                                    ));
+                                    break;
+                                }
+                                None => {
+                                    return Err("Function type is None".into());
+                                }
+                            }
                         }
                     }
                 }
@@ -588,6 +595,8 @@ impl<'a> Function<'a> {
         for (function_type, function_name, statement) in updates {
             Self::handle_function_type(self, function_type, function_name, statement);
         }
+
+        Ok(())
     }
 
     // Helper function to handle different function types and update meta information

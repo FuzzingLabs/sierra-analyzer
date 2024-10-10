@@ -98,6 +98,18 @@ impl<'a> Decompiler<'a> {
         // Assign types to functions (works only if the ABI is available)
         if let Err(_e) = self.set_functions_types() {}
 
+        // Clone the functions and the registry data before the mutable borrow occurs
+        let functions_ref = self.functions.clone();
+        let registry_data = self.registry();
+
+        // Now we can start iterating over decompiler.functions without any borrow conflict
+        let mut cloned_functions = self.functions.clone();
+
+        // The the meta informations for each function
+        for function in cloned_functions.iter_mut() {
+            let _ = function.set_meta_informations(&functions_ref, &registry_data);
+        }
+
         // Format the output string
         let mut output = String::new();
         if self.verbose {
@@ -113,8 +125,7 @@ impl<'a> Decompiler<'a> {
     /// Returns the functions that are defined by the user
     /// Constructor - External - View - Private - L1Handler
     /// From : https://github.com/crytic/caracal/blob/2267d5d514530e8a187732f1ca3e249c2997b6b6/src/core/compilation_unit.rs#L52
-    #[allow(dead_code)]
-    fn functions_user_defined(&self) -> impl Iterator<Item = &Function> {
+    pub fn user_defined_functions(&self) -> impl Iterator<Item = &Function> {
         self.functions.iter().filter(|f| {
             matches!(
                 f.function_type.clone().unwrap(),

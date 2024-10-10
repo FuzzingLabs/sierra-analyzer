@@ -1,5 +1,6 @@
 use cairo_lang_sierra::extensions::core::CoreConcreteLibfunc;
 use cairo_lang_sierra::extensions::lib_func::ParamSignature;
+use cairo_lang_sierra::extensions::starknet::StarkNetConcreteLibfunc;
 use cairo_lang_sierra::ids::VarId;
 use cairo_lang_sierra::program::GenStatement;
 
@@ -17,11 +18,42 @@ impl ControlledLibraryCallDetector {
     }
 }
 
+pub const BUILTINS: [&str; 8] = [
+    "Pedersen",
+    "RangeCheck",
+    "Bitwise",
+    "EcOp",
+    "Poseidon",
+    "SegmentArena",
+    "GasBuiltin",
+    "System",
+];
+
+/// Filter the builtins arguments and returns only the user defined arguments
+fn filter_builtins_from_arguments(
+    signature: &[ParamSignature],
+    arguments: Vec<VarId>,
+) -> Vec<VarId> {
+    signature
+        .iter()
+        .zip(arguments)
+        .filter(|(signature_elem, _)| {
+            !BUILTINS.contains(&signature_elem.ty.debug_name.as_ref().unwrap().as_str())
+        })
+        .map(|(_, argument_element)| argument_element)
+        .collect()
+}
+
 fn check_user_controlled(
-    _formal_params: &[ParamSignature],
-    _actual_params: Vec<VarId>,
+    formal_params: &[ParamSignature],
+    actual_params: Vec<VarId>,
     _function_name: &str,
-) {
+) -> bool {
+    // The first argument is the class hash
+    let _class_hash = filter_builtins_from_arguments(formal_params, actual_params)[0].clone();
+
+    // TODO : Check if the class hash argument is tainted or not
+    true
 }
 
 impl Detector for ControlledLibraryCallDetector {
@@ -50,14 +82,11 @@ impl Detector for ControlledLibraryCallDetector {
     }
 
     /// Detect library calls with a user controlled class hash
-    ///
-    /// WIP
-    ///
     fn detect(&mut self, decompiler: &mut Decompiler) -> String {
-        let result = String::new();
+        let mut result = String::new();
 
-        for function in decompiler.functions.iter() {
-            for statement in function.statements.clone() {
+        for function in decompiler.user_defined_functions() {
+            for statement in function.library_functions_calls.clone() {
                 if let GenStatement::Invocation(statement) = statement.statement {
                     let libfunc = decompiler
                         .registry()
@@ -65,11 +94,45 @@ impl Detector for ControlledLibraryCallDetector {
                         .expect("Library function not found in the registry");
 
                     if let CoreConcreteLibfunc::FunctionCall(abi_function) = libfunc {
-                        check_user_controlled(
+                        if check_user_controlled(
                             &abi_function.signature.param_signatures,
                             statement.args.clone(),
                             parse_element_name!(function.function.id.clone()).as_str(),
-                        );
+                        ) {
+                            result += &format!(
+                                "{} in {}",
+                                statement,
+                                parse_element_name!(function.function.id.clone()).as_str()
+                            )
+                            .to_string();
+                        };
+                    }
+                }
+            }
+
+            for statement in function.statements.clone() {
+                if let GenStatement::Invocation(statement) = statement.statement {
+                    let libfunc = decompiler
+                        .registry()
+                        .get_libfunc(&statement.libfunc_id)
+                        .expect("Library function not found in the registry");
+
+                    // We care only about a library call
+                    if let CoreConcreteLibfunc::StarkNet(StarkNetConcreteLibfunc::LibraryCall(l)) =
+                        libfunc
+                    {
+                        if check_user_controlled(
+                            &l.signature.param_signatures,
+                            statement.args.clone(),
+                            parse_element_name!(function.function.id.clone()).as_str(),
+                        ) {
+                            result += &format!(
+                                "{} in {}",
+                                statement,
+                                parse_element_name!(function.function.id.clone()).as_str()
+                            )
+                            .to_string();
+                        };
                     }
                 }
             }
