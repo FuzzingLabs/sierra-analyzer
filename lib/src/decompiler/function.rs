@@ -1,12 +1,16 @@
 use colored::*;
 use num_bigint::BigInt;
 
+use cairo_lang_sierra::extensions::core::CoreConcreteLibfunc;
+use cairo_lang_sierra::extensions::core::CoreLibfunc;
+use cairo_lang_sierra::extensions::core::CoreType;
 use cairo_lang_sierra::ids::VarId;
 use cairo_lang_sierra::program::BranchTarget;
 use cairo_lang_sierra::program::GenFunction;
 use cairo_lang_sierra::program::GenStatement;
 use cairo_lang_sierra::program::Invocation;
 use cairo_lang_sierra::program::StatementIdx;
+use cairo_lang_sierra::program_registry::ProgramRegistry;
 
 use crate::decompiler::cfg::ControlFlowGraph;
 use crate::decompiler::cfg::SierraConditionalBranch;
@@ -445,12 +449,68 @@ impl SierraStatement {
     }
 }
 
+/// Enum representing the type of a function in the system
+/// From https://github.com/crytic/caracal/blob/2267d5d514530e8a187732f1ca3e249c2997b6b6/src/core/function.rs#L26
+#[derive(Clone, Debug)]
+pub enum FunctionType {
+    /// External function defined by the user
+    External,
+    /// View function defined by the user
+    View,
+    /// Private function defined by the user
+    Private,
+    /// Constructor function defined by the user
+    Constructor,
+    /// Event function. These are the events emitted.
+    /// If the function name is ...::ContractStateEventEmitter::emit::<unused_events::unused_events::UnusedEvents::Event, ...>>
+    /// this doesn't explicitly mention the event emitted but rather the generic ::Event
+    /// it happens when the more verbose syntax is used e.g. self.emit(Event::MyUsedEvent(MyUsedEvent { value: amount }));
+    /// While when the other syntax is used it's possible to infer which event has been emitted
+    /// e.g. self.emit(MyUsedEvent { value: amount });
+    /// ContractStateEventEmitter::emit::<unused_events::unused_events::UnusedEvents::MyUsedEvent, ...>
+    Event,
+    /// Function made by the compiler for storage variables
+    /// typically address, read, write
+    Storage,
+    /// Wrapper around an external function made by the compiler
+    Wrapper,
+    /// Function of the core library
+    Core,
+    /// Function of a trait with the ABI attribute that does a call contract
+    AbiCallContract,
+    /// Function of a trait with the ABI attribute that does a library call
+    AbiLibraryCall,
+    /// L1 handler function
+    L1Handler,
+    /// Compiler generated function when a loop is present in a user defined function
+    /// Loop generate functions in core library are still Core type
+    Loop,
+}
+
 /// A struct representing a function in a Sierra program
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Function<'a> {
-    /// The function's `GenFunction` representation
+    // The function's `GenFunction` representation
     pub function: &'a GenFunction<StatementIdx>,
+    // Function type
+    pub function_type: Option<FunctionType>,
+    // Storage variables read
+    pub storage_vars_read: Vec<SierraStatement>,
+    /// Storage variables written
+    pub storage_vars_written: Vec<SierraStatement>,
+    /// Core functions called
+    pub core_functions_calls: Vec<SierraStatement>,
+    /// Private functions called + calls to self declared External/View functions
+    pub private_functions_calls: Vec<SierraStatement>,
+    /// Events emitted
+    pub events_emitted: Vec<SierraStatement>,
+    /// External functions called through an ABI trait
+    pub external_functions_calls: Vec<SierraStatement>,
+    /// Library functions called through an ABI trait
+    pub library_functions_calls: Vec<SierraStatement>,
+    /// Loop functions called
+    pub loop_functions_calls: Vec<SierraStatement>,
     // Function start offset
     pub start_offset: Option<u32>,
     // Function end offset
@@ -470,12 +530,99 @@ impl<'a> Function<'a> {
     pub fn new(function: &'a GenFunction<StatementIdx>) -> Self {
         Self {
             function,
+            function_type: None,
+            storage_vars_read: Vec::new(),
+            storage_vars_written: Vec::new(),
+            core_functions_calls: Vec::new(),
+            private_functions_calls: Vec::new(),
+            events_emitted: Vec::new(),
+            external_functions_calls: Vec::new(),
+            library_functions_calls: Vec::new(),
+            loop_functions_calls: Vec::new(),
             statements: Vec::new(),
             start_offset: None,
             end_offset: None,
             cfg: None,
             prototype: None,
             arguments: Vec::new(),
+        }
+    }
+
+    /// Set the meta informations such as storage variables read, storage variables written, core function called
+    /// private function called, events emitted
+    pub fn set_meta_informations(
+        &mut self,
+        functions: &[Function],
+        registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    ) -> Result<(), String> {
+        // Collect the necessary information during the immutable borrow
+        let mut updates = Vec::new();
+
+        for statement in &self.statements {
+            if let GenStatement::Invocation(invoc) = &statement.statement {
+                let lib_func = registry
+                    .get_libfunc(&invoc.libfunc_id)
+                    .expect("Library function not found in the registry");
+
+                if let CoreConcreteLibfunc::FunctionCall(f_called) = lib_func {
+                    let function_name = f_called.function.id.debug_name.as_ref().unwrap();
+
+                    for function in functions {
+                        let current_function_name =
+                            parse_element_name!(function.function.id.clone());
+
+                        if current_function_name.as_str() == function_name {
+                            match function.function_type.clone() {
+                                Some(function_type) => {
+                                    updates.push((
+                                        function_type,
+                                        current_function_name.clone(),
+                                        statement.clone(),
+                                    ));
+                                    break;
+                                }
+                                None => {
+                                    return Err("Function type is None".into());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Perform the mutable operations after the immutable borrow is complete
+        for (function_type, function_name, statement) in updates {
+            Self::handle_function_type(self, function_type, function_name, statement);
+        }
+
+        Ok(())
+    }
+
+    // Helper function to handle different function types and update meta information
+    fn handle_function_type(
+        self_ref: &mut Self,
+        function_type: FunctionType,
+        function_name: String,
+        statement: SierraStatement,
+    ) {
+        match function_type {
+            FunctionType::Storage => {
+                if function_name.ends_with("read") {
+                    self_ref.storage_vars_read.push(statement);
+                } else if function_name.ends_with("write") {
+                    self_ref.storage_vars_written.push(statement);
+                }
+            }
+            FunctionType::Event => self_ref.events_emitted.push(statement),
+            FunctionType::Core => self_ref.core_functions_calls.push(statement),
+            FunctionType::Private | FunctionType::External | FunctionType::View => {
+                self_ref.private_functions_calls.push(statement)
+            }
+            FunctionType::AbiCallContract => self_ref.external_functions_calls.push(statement),
+            FunctionType::AbiLibraryCall => self_ref.library_functions_calls.push(statement),
+            FunctionType::Loop => self_ref.loop_functions_calls.push(statement),
+            _ => (),
         }
     }
 
@@ -522,5 +669,11 @@ impl<'a> Function<'a> {
     #[inline]
     pub fn set_arguments(&mut self, arguments: Vec<(String, String)>) {
         self.arguments = arguments;
+    }
+
+    /// Sets the type of the function
+    #[inline]
+    pub fn set_type(&mut self, function_type: FunctionType) {
+        self.function_type = Some(function_type);
     }
 }

@@ -55,7 +55,7 @@ fn test_functions_detector() {
     let functions_names = detector.detect(&mut decompiler);
 
     let expected_output =
-        "examples::fib_array::fib\n\u{1b}[0mexamples::fib_array::fib_inner\u{1b}[0m";
+        "Private : examples::fib_array::fib\n\u{1b}[0mPrivate : examples::fib_array::fib_inner\u{1b}[0m";
 
     assert_eq!(functions_names, expected_output);
 }

@@ -1,4 +1,5 @@
 use crate::decompiler::decompiler::Decompiler;
+use crate::decompiler::function::FunctionType;
 use crate::detectors::detector::{Detector, DetectorType};
 
 #[derive(Debug)]
@@ -48,7 +49,28 @@ impl Detector for FunctionsDetector {
                 // Remove the "func " prefix and then split at the first space
                 let stripped_prototype = &prototype[5..];
                 if let Some(first_space_index) = stripped_prototype.find(' ') {
-                    result += &stripped_prototype[..first_space_index];
+                    let function_name = &stripped_prototype[..first_space_index];
+
+                    // Put the function type in the output if it exists
+                    if let Some(function_type) = &function.function_type {
+                        let function_type_str = match function_type {
+                            FunctionType::External => "External",
+                            FunctionType::View => "View",
+                            FunctionType::Private => "Private",
+                            FunctionType::Constructor => "Constructor",
+                            FunctionType::Event => "Event",
+                            FunctionType::Storage => "Storage",
+                            FunctionType::Wrapper => "Wrapper",
+                            FunctionType::Core => "Core",
+                            FunctionType::AbiCallContract => "AbiCallContract",
+                            FunctionType::AbiLibraryCall => "AbiLibraryCall",
+                            FunctionType::L1Handler => "L1Handler",
+                            FunctionType::Loop => "Loop",
+                        };
+                        result += &format!("{} : {}", function_type_str, function_name);
+                    } else {
+                        result += function_name;
+                    }
                 }
                 // Add a newline if it's not the last function
                 if index < total_functions - 1 {

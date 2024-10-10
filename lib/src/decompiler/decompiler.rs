@@ -1,15 +1,26 @@
 use colored::*;
 
+use std::collections::HashSet;
+
+use cairo_lang_sierra::extensions::core::CoreLibfunc;
+use cairo_lang_sierra::extensions::core::CoreType;
 use cairo_lang_sierra::program::GenFunction;
 use cairo_lang_sierra::program::GenericArg;
 use cairo_lang_sierra::program::LibfuncDeclaration;
 use cairo_lang_sierra::program::StatementIdx;
 use cairo_lang_sierra::program::TypeDeclaration;
+use cairo_lang_sierra::program_registry::ProgramRegistry;
+use cairo_lang_starknet_classes::abi::Contract;
+use cairo_lang_starknet_classes::abi::StateMutability;
+use cairo_lang_starknet_classes::abi::{
+    Item::Function as AbiFunction, Item::Interface as AbiInterface, Item::L1Handler as AbiL1Handler,
+};
 
 use crate::config::GraphConfig;
 use crate::decompiler::cfg::BasicBlock;
 use crate::decompiler::cfg::EdgeType;
 use crate::decompiler::function::Function;
+use crate::decompiler::function::FunctionType;
 use crate::decompiler::function::SierraStatement;
 use crate::decompiler::libfuncs_patterns::IS_ZERO_REGEX;
 use crate::decompiler::utils::decode_user_defined_type_id;
@@ -23,8 +34,13 @@ use crate::sierra_program::SierraProgram;
 pub struct Decompiler<'a> {
     /// A reference to the Sierra program to decompile
     pub sierra_program: &'a SierraProgram,
+    /// ABI of the contract
+    /// Only available if the decompiled contract is compiled using starknet-compile
+    pub abi: Option<Contract>,
     /// Program functions
     pub functions: Vec<Function<'a>>,
+    /// Program registry
+    registry: &'a ProgramRegistry<CoreType, CoreLibfunc>,
     /// Current indentation
     indentation: u32,
     /// Already printed basic blocks (to avoid printing two times the same BB)
@@ -44,7 +60,9 @@ impl<'a> Decompiler<'a> {
     pub fn new(sierra_program: &'a SierraProgram, verbose: bool) -> Self {
         Decompiler {
             sierra_program,
+            abi: sierra_program.abi.clone(),
             functions: Vec::new(),
+            registry: sierra_program.registry(),
             indentation: 1,
             printed_blocks: Vec::new(),
             current_function: None,
@@ -52,6 +70,11 @@ impl<'a> Decompiler<'a> {
             declared_libfuncs_names: Vec::new(),
             verbose,
         }
+    }
+
+    /// Returns a reference to the program registry
+    pub fn registry(&self) -> &ProgramRegistry<CoreType, CoreLibfunc> {
+        &self.registry
     }
 
     /// Decompiles the Sierra Program and return the string output
@@ -72,6 +95,21 @@ impl<'a> Decompiler<'a> {
         // Decompile the functions
         let functions = self.decompile_functions();
 
+        // Assign types to functions (works only if the ABI is available)
+        if let Err(_e) = self.set_functions_types() {}
+
+        // Clone the functions and the registry data before the mutable borrow occurs
+        let functions_ref = self.functions.clone();
+        let registry_data = self.registry();
+
+        // Now we can start iterating over decompiler.functions without any borrow conflict
+        let mut cloned_functions = self.functions.clone();
+
+        // The the meta informations for each function
+        for function in cloned_functions.iter_mut() {
+            let _ = function.set_meta_informations(&functions_ref, &registry_data);
+        }
+
         // Format the output string
         let mut output = String::new();
         if self.verbose {
@@ -82,6 +120,201 @@ impl<'a> Decompiler<'a> {
         }
         output.push_str(&functions);
         output
+    }
+
+    /// Returns the functions that are defined by the user
+    /// Constructor - External - View - Private - L1Handler
+    /// From : https://github.com/crytic/caracal/blob/2267d5d514530e8a187732f1ca3e249c2997b6b6/src/core/compilation_unit.rs#L52
+    pub fn user_defined_functions(&self) -> impl Iterator<Item = &Function> {
+        self.functions.iter().filter(|f| {
+            if let Some(function_type) = &f.function_type {
+                matches!(
+                    function_type,
+                    FunctionType::Constructor
+                        | FunctionType::External
+                        | FunctionType::View
+                        | FunctionType::Private
+                        | FunctionType::L1Handler
+                        | FunctionType::Loop
+                )
+            } else {
+                false
+            }
+        })
+    }
+
+    // Helper function to extract and categorize function names
+    fn categorize_function(
+        full_name: &str,
+        constructors: &mut HashSet<String>,
+        external_functions: &mut HashSet<String>,
+    ) {
+        if full_name.contains("::__wrapper_") {
+            // This case happens for Cairo >= 2.2.0
+            let function_name = full_name.replace("__wrapper__", "").replace("__", "::");
+            if function_name.ends_with("::constructor") {
+                constructors.insert(function_name);
+            } else {
+                external_functions.insert(function_name);
+            }
+        } else if let Some(function_name) = full_name.strip_prefix("::__external::") {
+            external_functions.insert(function_name.to_string());
+        } else if let Some(function_name) = full_name.strip_prefix("::__constructor::") {
+            constructors.insert(function_name.to_string());
+        } else if let Some(function_name) = full_name.strip_prefix("::__l1_handler::") {
+            external_functions.insert(function_name.to_string());
+        }
+    }
+
+    // Helper function to simplify function names by removing the implementation block name
+    fn simplify_function_name(full_name: &str) -> String {
+        let mut parts: Vec<&str> = full_name.split("::").collect();
+        if parts.len() > 2 {
+            parts.remove(parts.len() - 2); // Remove the impl name part
+        }
+        parts.join("::")
+    }
+
+    // Helper function to handle core and wrapper functions
+    fn handle_core_or_wrapper(full_name: &str) -> Option<FunctionType> {
+        if full_name.starts_with("core::") || full_name.ends_with("::append_keys_and_data") {
+            Some(FunctionType::Core)
+        } else if full_name.contains("::__external::")
+            || full_name.contains("::__constructor::")
+            || full_name.contains("::__l1_handler::")
+            || full_name.contains("::__wrapper_")
+        {
+            Some(FunctionType::Wrapper)
+        } else {
+            None
+        }
+    }
+
+    // Helper function to check if the function is a constructor
+    fn is_constructor(full_name: &str, constructors: &HashSet<String>) -> bool {
+        constructors.contains(full_name)
+    }
+
+    // Helper function to handle ABI-related function types (External, View, L1Handler)
+    fn handle_abi_function_types(f: &mut Function, full_name: &str, abi: Option<Contract>) {
+        let function_name = full_name.rsplit_once("::").unwrap().1;
+        if let Some(abi_items) = abi {
+            for item in abi_items.clone() {
+                match item {
+                    AbiFunction(function) if function.name == function_name => {
+                        match function.state_mutability {
+                            StateMutability::External => {
+                                f.set_type(FunctionType::External);
+                            }
+                            StateMutability::View => {
+                                f.set_type(FunctionType::View);
+                            }
+                        }
+                        break;
+                    }
+                    AbiL1Handler(l1handler) if l1handler.name == function_name => {
+                        f.set_type(FunctionType::L1Handler);
+                        break;
+                    }
+                    AbiInterface(interface) => {
+                        for interface_item in &interface.items {
+                            match interface_item {
+                                AbiFunction(function) if function.name == function_name => {
+                                    match function.state_mutability {
+                                        StateMutability::External => {
+                                            f.set_type(FunctionType::External);
+                                        }
+                                        StateMutability::View => {
+                                            f.set_type(FunctionType::View);
+                                        }
+                                    }
+                                    break;
+                                }
+                                AbiL1Handler(l1handler) if l1handler.name == function_name => {
+                                    f.set_type(FunctionType::L1Handler);
+                                    break;
+                                }
+                                _ => (),
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
+    }
+
+    // Helper function to check if the function is a storage function
+    fn is_storage_function(full_name: &str) -> bool {
+        full_name.ends_with("::InternalContractStateImpl::address")
+            || full_name.ends_with("::InternalContractStateImpl::read")
+            || full_name.ends_with("::InternalContractStateImpl::write")
+            || full_name.ends_with("::InternalContractMemberStateImpl::address")
+            || full_name.ends_with("::InternalContractMemberStateImpl::read")
+            || full_name.ends_with("::InternalContractMemberStateImpl::write")
+    }
+
+    // Helper function to handle other function types like LibraryDispatcher, Dispatcher, Event, Loop, and Private
+    fn handle_other_function_types(f: &mut Function, full_name: &str) {
+        if full_name.contains("LibraryDispatcherImpl::") {
+            f.set_type(FunctionType::AbiLibraryCall);
+        } else if full_name.contains("DispatcherImpl::") {
+            f.set_type(FunctionType::AbiCallContract);
+        } else if full_name.contains("::emit::") {
+            f.set_type(FunctionType::Event);
+        } else if full_name.ends_with(']') {
+            f.set_type(FunctionType::Loop);
+        } else {
+            f.set_type(FunctionType::Private);
+        }
+    }
+
+    // Set the function `function_type` field
+    fn set_functions_types(&mut self) -> Result<(), String> {
+        let mut external_functions: HashSet<String> = HashSet::new();
+        let mut constructors: HashSet<String> = HashSet::new();
+
+        // Gather all the external/l1_handler functions and the constructor of each contract
+        for f in self.functions.iter() {
+            let full_name = parse_element_name!(f.function.id.clone());
+            Self::categorize_function(&full_name, &mut constructors, &mut external_functions);
+        }
+
+        // Main logic to set the function types
+        for f in self.functions.iter_mut() {
+            let full_name = parse_element_name!(f.function.id.clone());
+            let simplified_name = Self::simplify_function_name(&full_name);
+
+            // Check if the function is a core or wrapper function
+            if let Some(function_type) = Self::handle_core_or_wrapper(&full_name) {
+                f.set_type(function_type);
+            }
+            // Check if the function is a constructor
+            else if Self::is_constructor(&full_name, &constructors) {
+                f.set_type(FunctionType::Constructor);
+            }
+            // Check if the function is an external function
+            else if external_functions.contains(&full_name)
+                || external_functions.contains(&simplified_name)
+            {
+                Self::handle_abi_function_types(f, &full_name, self.abi.clone());
+            }
+            // Check if the function is a storage function
+            else if Self::is_storage_function(&full_name) {
+                f.set_type(FunctionType::Storage);
+            }
+            // Handle other specific function types
+            else {
+                Self::handle_other_function_types(f, &full_name);
+            }
+
+            // Check if the function type is set
+            if f.function_type.is_none() {
+                return Err(format!("Failed to set function type for: {}", full_name));
+            }
+        }
+
+        Ok(())
     }
 
     /// Decompiles the type declarations
