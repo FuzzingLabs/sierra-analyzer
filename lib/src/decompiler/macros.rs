@@ -51,3 +51,17 @@ macro_rules! extract_parameters {
             .collect::<Vec<String>>()
     };
 }
+
+/// Macro to convert a single var_id into its name using it id or debug name.
+#[macro_export]
+macro_rules! var_id_to_name {
+    ($var_id:expr) => {
+        if let Some(debug_name) = &$var_id.debug_name {
+            // If debug_name exists, use it as parameter
+            debug_name.clone().into()
+        } else {
+            // If debug_name is None, use id field as parameter
+            format!("v{}", $var_id.id)
+        }
+    };
+}
