@@ -1,4 +1,5 @@
 use crate::decompiler::decompiler::Decompiler;
+use crate::decompiler::function::FunctionType;
 use crate::decompiler::libfuncs_patterns::{
     ADDITION_REGEX, MULTIPLICATION_REGEX, SUBSTRACTION_REGEX,
 };
@@ -52,6 +53,13 @@ impl Detector for FeltOverflowDetector {
         decompiler.decompile_functions_prototypes();
 
         for function in decompiler.functions.clone() {
+            // Skip core functions
+            if let Some(function_type) = function.function_type {
+                if matches!(function_type, FunctionType::Core) {
+                    continue;
+                }
+            }
+
             let function_name = function.function.id.clone();
 
             let arguments = function.arguments;
