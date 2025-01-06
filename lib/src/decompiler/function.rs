@@ -565,7 +565,7 @@ impl<'a> Function<'a> {
                     .expect("Library function not found in the registry");
 
                 if let CoreConcreteLibfunc::FunctionCall(f_called) = lib_func {
-                    let function_name = f_called.function.id.debug_name.as_ref().unwrap();
+                    let function_name = parse_element_name!(f_called.function.id);
 
                     for function in functions {
                         let current_function_name =
