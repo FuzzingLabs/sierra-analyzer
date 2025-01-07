@@ -67,15 +67,19 @@ struct Args {
     /// Network type (Mainnet & Sepolia are supported)
     #[clap(long, default_value = "mainnet")]
     network: String,
+
+    /// Run sierra-analyzer in a repo that uses Scarb
+    #[clap(long)]
+    scarb: bool,
 }
 
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
 
-    // Ensure either remote or Sierra file is provided
-    if args.remote.is_empty() && args.sierra_file.is_none() {
-        eprintln!("Error: Either remote or Sierra file must be provided");
+    // Ensure either remote, Sierra file, or scarb is provided
+    if args.remote.is_empty() && args.sierra_file.is_none() && !args.scarb {
+        eprintln!("Error: Either remote, Sierra file, or --scarb flag must be provided");
         return;
     }
 
@@ -120,9 +124,11 @@ async fn main() {
     }
 }
 
-/// Load the Sierra program from either a remote source or a local file
+/// Load the Sierra program from either a remote source, a local file, or scarb
 async fn load_program(args: &Args) -> Result<SierraProgram, String> {
-    if !args.remote.is_empty() {
+    if args.scarb {
+        load_scarb_program(args).await
+    } else if !args.remote.is_empty() {
         load_remote_program(args).await
     } else {
         load_local_program(args)
@@ -196,10 +202,19 @@ fn load_local_program(args: &Args) -> Result<SierraProgram, String> {
     Ok(program)
 }
 
+/// Load the Sierra program in the /target directory
+async fn load_scarb_program(args: &Args) -> Result<SierraProgram, String> {
+    // TODO: Implement the logic to load the sierra-program from /target/dev/ directory
+    todo!()
+}
+
 /// Get the file stem based on the remote address or the Sierra file
 fn get_file_stem(args: &Args) -> String {
     if !args.remote.is_empty() {
         args.remote.clone()
+    } else if args.scarb {
+        // TODO : modify with the program name
+        "sierra_program".to_string()
     } else {
         args.sierra_file
             .as_ref()
