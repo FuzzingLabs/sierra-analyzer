@@ -16,6 +16,7 @@ Sierra Analyzer is a security toolkit designed for analyzing Sierra files. It in
 - [Use the symbolic execution to generate unit tests](#use-the-symbolic-execution-to-generate-unit-tests)
 - [Improve the decompiler output using LLMs](#print-the-contracts-callgraph)
 - [Use it as a library](#print-the-contracts-callgraph)
+- [Use with a Scarb project](#use-it-with-a-scarb-project)
 
 
 ### Project structure 
@@ -140,6 +141,30 @@ The tests generator can also be used [with the library](https://github.com/Fuzzi
 ### Use it as a library 
 
 It is also possible to use the `sierra-analyzer-lib` library to decompile serialised or unserialised Sierra files.
+
+### Use it with a Scarb project
+
+First you need to build the project using Scarb : 
+
+```sh
+scarb build
+```
+
+Then you can run the sierra-decompiler using the `--scarb` flag : 
+
+```sh
+// Run the decompiler
+sierra-decompiler --scarb
+
+// Run the analyzer
+sierra-decompiler --scarb -a
+
+// Generate the control-flow graph
+sierra-decompiler --scarb --cfg
+
+// Generate the callgraph
+sierra-decompiler --scarb --callgraph
+```
 
 ### Features
 
