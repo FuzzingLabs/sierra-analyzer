@@ -9,11 +9,11 @@ pub struct NetworkConfig;
 impl NetworkConfig {
     /// URL for the mainnet API
     pub const MAINNET_API_URL: &'static str =
-        "https://starknet-mainnet.public.blastapi.io/rpc/v0_6";
+        "https://starknet-mainnet.public.blastapi.io/rpc/v0_7";
 
     /// URL for the Sepolia API
     pub const SEPOLIA_API_URL: &'static str =
-        "https://starknet-sepolia.public.blastapi.io/rpc/v0_6";
+        "https://starknet-sepolia.public.blastapi.io/rpc/v0_7";
 }
 
 /// Struct representing an RPC client

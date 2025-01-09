@@ -1,7 +1,8 @@
 use std::fs;
 use std::fs::File;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::exit;
 
 use clap::Parser;
 use serde_json;
@@ -67,15 +68,19 @@ struct Args {
     /// Network type (Mainnet & Sepolia are supported)
     #[clap(long, default_value = "mainnet")]
     network: String,
+
+    /// Run sierra-analyzer in a repo that uses Scarb
+    #[clap(long)]
+    scarb: bool,
 }
 
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
 
-    // Ensure either remote or Sierra file is provided
-    if args.remote.is_empty() && args.sierra_file.is_none() {
-        eprintln!("Error: Either remote or Sierra file must be provided");
+    // Ensure either remote, Sierra file, or scarb is provided
+    if args.remote.is_empty() && args.sierra_file.is_none() && !args.scarb {
+        eprintln!("Error: Either remote, Sierra file, or --scarb flag must be provided");
         return;
     }
 
@@ -120,9 +125,11 @@ async fn main() {
     }
 }
 
-/// Load the Sierra program from either a remote source or a local file
+/// Load the Sierra program from either a remote source, a local file, or scarb
 async fn load_program(args: &Args) -> Result<SierraProgram, String> {
-    if !args.remote.is_empty() {
+    if args.scarb {
+        load_scarb_program().await
+    } else if !args.remote.is_empty() {
         load_remote_program(args).await
     } else {
         load_local_program(args)
@@ -196,10 +203,85 @@ fn load_local_program(args: &Args) -> Result<SierraProgram, String> {
     Ok(program)
 }
 
+/// Load the Sierra program from the /target directory
+async fn load_scarb_program() -> Result<SierraProgram, String> {
+    let target_dir = Path::new("./target/dev/");
+
+    // Read the directory contents
+    let entries =
+        fs::read_dir(target_dir).map_err(|e| format!("Failed to read directory: {}", e))?;
+
+    // Find the file that ends with "contract_class.json"
+    let contract_class_file = entries
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let path = entry.path();
+            if path.is_file()
+                && path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .map_or(false, |name| name.ends_with("contract_class.json"))
+            {
+                Some(path)
+            } else {
+                None
+            }
+        })
+        .next();
+
+    // Check if the file was found
+    let contract_class_file = if let Some(file) = contract_class_file {
+        file
+    } else {
+        eprintln!("You need to run scarb build before running the sierra-analyzer");
+        exit(1);
+    };
+
+    // Open the file
+    let mut file =
+        File::open(&contract_class_file).map_err(|e| format!("Failed to open file: {}", e))?;
+
+    // Read the file content into a string
+    let mut content = String::new();
+    file.read_to_string(&mut content)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+
+    // Deserialize the JSON content into a ContractClass
+    let contract_class: Result<ContractClass, _> = serde_json::from_str(&content);
+
+    let program_string = match contract_class {
+        Ok(ref prog) => {
+            // Extract the Sierra program from the ContractClass
+            match prog.extract_sierra_program() {
+                Ok(prog_sierra) => prog_sierra.to_string(),
+                Err(e) => {
+                    eprintln!("Error extracting Sierra program: {}", e);
+                    content.clone()
+                }
+            }
+        }
+        Err(ref _e) => content.clone(),
+    };
+
+    // Initialize a new SierraProgram with the deserialized Sierra program content
+    let mut program = SierraProgram::new(program_string);
+
+    // Set the program ABI if deserialization was successful
+    if let Ok(ref contract_class) = contract_class {
+        let abi = contract_class.abi.clone();
+        program.set_abi(abi.unwrap());
+    }
+
+    Ok(program)
+}
+
 /// Get the file stem based on the remote address or the Sierra file
 fn get_file_stem(args: &Args) -> String {
     if !args.remote.is_empty() {
         args.remote.clone()
+    } else if args.scarb {
+        // TODO : modify with the program name
+        "sierra_program".to_string()
     } else {
         args.sierra_file
             .as_ref()

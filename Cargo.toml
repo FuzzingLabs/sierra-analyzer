@@ -41,7 +41,7 @@ clap = { version = "4.0.0-rc.1", features = [ "derive" ] }
 serde = "1.0.209"
 serde_json = "1.0.116"
 tokio = "1.37.0"
-cairo-lang-sierra = "~2.8.4" 
-cairo-lang-starknet-classes = "~2.8.4" 
+cairo-lang-sierra = "~2.9.2" 
+cairo-lang-starknet-classes = "~2.9.2" 
 sierra-analyzer-lib = { path = "./lib" }
 

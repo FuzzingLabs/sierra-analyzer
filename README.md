@@ -16,6 +16,7 @@ Sierra Analyzer is a security toolkit designed for analyzing Sierra files. It in
 - [Use the symbolic execution to generate unit tests](#use-the-symbolic-execution-to-generate-unit-tests)
 - [Improve the decompiler output using LLMs](#print-the-contracts-callgraph)
 - [Use it as a library](#print-the-contracts-callgraph)
+- [Use with a Scarb project](#use-it-with-a-scarb-project)
 
 
 ### Project structure 
@@ -58,10 +59,10 @@ Contracts can be fetched directly from Starknet (Mainnet & Sepolia) by specifyin
 
 ```
 # Fetch & decompile a contract from starknet mainnet 
-cargo run -- --remote 0x07c43d18d37d66d7855dab8f21ebf9d554dd213c6307aacecaf2d595a53b3bbb
+cargo run -- --remote 0x035ae0fe6ca00fcc8020a6c64503f38bfaf3481ae9a6c8b7daec2f899df735fa
 
 # Fetch & decompile a contract from Sepolia network
-cargo run -- --network sepolia --remote 0x068377a89d64c0b16dc97c66933777bf4e9b050652c4fde2c59c8c4d755a163b
+cargo run -- --remote 0x01437be408319cdb7524b3e3c52c0e9d80070d8cb85f363d42a7c3c2df5b66b2 --network sepolia -d
 ```
 
 ### Print the contract's Control-Flow Graph
@@ -140,6 +141,30 @@ The tests generator can also be used [with the library](https://github.com/Fuzzi
 ### Use it as a library 
 
 It is also possible to use the `sierra-analyzer-lib` library to decompile serialised or unserialised Sierra files.
+
+### Use it with a Scarb project
+
+First you need to build the project using Scarb : 
+
+```sh
+scarb build
+```
+
+Then you can run the sierra-decompiler using the `--scarb` flag : 
+
+```sh
+// Run the decompiler
+sierra-decompiler --scarb
+
+// Run the analyzer
+sierra-decompiler --scarb -a
+
+// Generate the control-flow graph
+sierra-decompiler --scarb --cfg
+
+// Generate the callgraph
+sierra-decompiler --scarb --callgraph
+```
 
 ### Features
 
