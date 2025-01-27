@@ -94,9 +94,9 @@ impl Detector for FeltOverflowDetector {
                     );
 
                     // Detect if we perform an arithmetic operation with a felt argument
-                    if ADDITION_REGEX.is_match(&libfunc_name)
-                        || SUBSTRACTION_REGEX.is_match(&libfunc_name)
-                        || MULTIPLICATION_REGEX.is_match(&libfunc_name)
+                    if ADDITION_REGEX.iter().any(|regex| regex.is_match(&libfunc_name))
+                        || SUBSTRACTION_REGEX.iter().any(|regex| regex.is_match(&libfunc_name))
+                        || MULTIPLICATION_REGEX.iter().any(|regex| regex.is_match(&libfunc_name))
                     {
                         if !local_found_felt_arguments.is_empty() {
                             found_vulnerabilities
