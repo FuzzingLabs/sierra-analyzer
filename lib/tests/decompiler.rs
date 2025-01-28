@@ -93,6 +93,7 @@ fn test_decompiler_sierra_no_error(file_name: &str) {
 #[test_case("with_ownable.contract_class.json")]
 #[test_case("with_ownable_mini__ownable_mini_contract.contract_class.json")]
 #[test_case("with_ownable__ownable_balance.contract_class.json")]
+#[test_case("unimpaired_cairo_Overflow.contract_class.json")]
 fn test_decompiler_starknet_no_error(file_name: &str) {
     // Construct the file path
     let file_path = format!("../examples/starknet/{}", file_name);

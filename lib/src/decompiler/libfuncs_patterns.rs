@@ -25,11 +25,11 @@ lazy_static! {
     ];
     pub static ref SUBSTRACTION_REGEX: Vec<Regex> = vec![
         Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_sub").unwrap(),
-        Regex::new(r"user@core::Felt(8|16|32|64|128|252)Sub::sub").unwrap(),
+        Regex::new(r"function_call<user@core::Felt(8|16|32|64|128|252)Sub::sub>").unwrap(),
      ];
     pub static ref MULTIPLICATION_REGEX: Vec<Regex> = vec![
         Regex::new(r"(felt|u)_?(8|16|32|64|128|252)(_overflowing)?_mul").unwrap(),
-        Regex::new(r"user@core::Felt(8|16|32|64|128|252)Mul::mul").unwrap(),
+        Regex::new(r"function_call<user@core::Felt(8|16|32|64|128|252)Mul::mul>").unwrap(),
     ];
 
     // Variable duplication

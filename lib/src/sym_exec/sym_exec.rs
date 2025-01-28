@@ -111,16 +111,25 @@ fn handle_arithmetic_operations<'ctx>(
     parameters: &[String],
     assigned_variables: &[String],
 ) -> Option<Bool<'ctx>> {
-    let operator = if ADDITION_REGEX.iter().any(|regex| regex.is_match(libfunc_id_str)) {
+    let operator = if ADDITION_REGEX
+        .iter()
+        .any(|regex| regex.is_match(libfunc_id_str))
+    {
         "+"
-    } else if SUBSTRACTION_REGEX.iter().any(|regex| regex.is_match(libfunc_id_str)) {
+    } else if SUBSTRACTION_REGEX
+        .iter()
+        .any(|regex| regex.is_match(libfunc_id_str))
+    {
         "-"
-    } else if MULTIPLICATION_REGEX.iter().any(|regex| regex.is_match(libfunc_id_str)) {
+    } else if MULTIPLICATION_REGEX
+        .iter()
+        .any(|regex| regex.is_match(libfunc_id_str))
+    {
         "*"
     } else {
         return None;
     };
-    
+
     let assigned_variable = Int::new_const(context, assigned_variables[0].clone());
     let first_operand = Int::new_const(context, parameters[0].clone());
     let second_operand = Int::new_const(context, parameters[1].clone());
