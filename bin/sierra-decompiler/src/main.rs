@@ -72,11 +72,21 @@ struct Args {
     /// Run sierra-analyzer in a repo that uses Scarb
     #[clap(long)]
     scarb: bool,
+
+    /// List all available detector names
+    #[clap(long)]
+    detector_help: bool,
 }
 
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+
+    // Handle the --detector-help flag
+    if args.detector_help {
+        print_available_detectors();
+        return;
+    }
 
     // Ensure either remote, Sierra file, or scarb is provided
     if args.remote.is_empty() && args.sierra_file.is_none() && !args.scarb {
@@ -375,5 +385,19 @@ fn handle_detectors(decompiler: &mut Decompiler, detector_names: Vec<String>) {
     // Print the detectors result if not empty
     if !output.trim().is_empty() {
         println!("{}", output.trim());
+    }
+}
+
+/// Print all available detector names with their types and descriptions
+fn print_available_detectors() {
+    let detectors = get_detectors();
+    println!("Available detectors:");
+    for detector in detectors {
+        println!(
+            "- [{}] {} : {}",
+            detector.detector_type().as_str(),
+            detector.id(),
+            detector.description()
+        );
     }
 }
