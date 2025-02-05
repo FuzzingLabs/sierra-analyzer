@@ -98,6 +98,9 @@ cargo run -- -f ./examples/sierra/fib_unary.sierra --callgraph --function 'examp
 
 ```
 cargo run -- -f ./examples/sierra/fib_array.sierra  -d
+
+// Print all available detectors with their description  
+cargo run -- --detector-help
 ```
 
 <p align="center">
