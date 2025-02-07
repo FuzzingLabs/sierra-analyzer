@@ -107,6 +107,8 @@ cargo run -- --detector-help
 	<img src="/doc/images/detectors-output.png" height="130px"/>
 </p>
 
+The documentation for creating a new detector is [here](https://github.com/FuzzingLabs/sierra-analyzer/blob/master/doc/detector-creation.md)
+
 ### Use the symbolic execution to generate unit tests
 
 #### 1) Using the Tests generator detector
