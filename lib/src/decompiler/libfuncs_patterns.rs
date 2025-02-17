@@ -53,6 +53,14 @@ lazy_static! {
         Regex::new(r"(felt|u)_?(8|16|32|64|128|252)_const<(?P<const>-?[0-9]+)>").unwrap(),
     ];
 
+    // Safe math operations
+    pub static ref SAFE_MATH_REGEXES: Vec<Regex> = vec![
+        Regex::new(r"function_call<user@.+::safe_math::div>").unwrap(),
+        Regex::new(r"function_call<user@.+::safe_math::mul>").unwrap(),
+        Regex::new(r"function_call<user@.+::safe_math::sub>").unwrap(),
+        Regex::new(r"function_call<user@.+::safe_math::add>").unwrap(),
+    ];
+
     // User defined function
     pub static ref USER_DEFINED_FUNCTION_REGEX: Regex = Regex::new(r"(function_call|(\[[0-9]+\]))(::)?<user@(?P<function_id>.+)>").unwrap();
 
