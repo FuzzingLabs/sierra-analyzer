@@ -171,6 +171,8 @@ sierra-decompiler --scarb --cfg
 sierra-decompiler --scarb --callgraph
 ```
 
+There are examples of repositories that uses scarb in [examples/scarb](/examples/scarb/scarb_example/). 
+
 ### Features
 
 - [x] Decompiler
