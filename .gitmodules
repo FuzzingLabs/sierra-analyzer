@@ -1,0 +1,3 @@
+[submodule "examples/scarb/unimpaired-cairo"]
+	path = examples/scarb/unimpaired-cairo
+	url = https://github.com/amanusk/unimpaired-cairo.git
