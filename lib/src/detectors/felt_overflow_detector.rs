@@ -1,7 +1,7 @@
 use crate::decompiler::decompiler::Decompiler;
 use crate::decompiler::function::FunctionType;
 use crate::decompiler::libfuncs_patterns::{
-    ADDITION_REGEX, MULTIPLICATION_REGEX, SUBSTRACTION_REGEX,
+    ADDITION_REGEX, MULTIPLICATION_REGEX, SUBSTRACTION_REGEX, WRITE_REGEX,
 };
 use crate::detectors::detector::{Detector, DetectorType};
 use crate::parse_element_name_with_fallback;
@@ -93,7 +93,7 @@ impl Detector for FeltOverflowDetector {
                         decompiler.declared_libfuncs_names
                     );
 
-                    // Detect if we perform an arithmetic operation with a felt argument
+                    // Detect if we perform an arithmetic operation or a write operation with a felt argument
                     if ADDITION_REGEX
                         .iter()
                         .any(|regex| regex.is_match(&libfunc_name))
@@ -103,6 +103,7 @@ impl Detector for FeltOverflowDetector {
                         || MULTIPLICATION_REGEX
                             .iter()
                             .any(|regex| regex.is_match(&libfunc_name))
+                        || WRITE_REGEX.is_match(&libfunc_name)
                     {
                         let confidence = if !local_found_felt_arguments.is_empty() {
                             "High"
@@ -123,12 +124,14 @@ impl Detector for FeltOverflowDetector {
         // Append the found vulnerabilities to the result
         if !found_vulnerabilities.is_empty() {
             for (function_name, arguments, confidence, libfunc_name) in found_vulnerabilities {
+                let truncated_libfunc_name = truncate_function_name(&libfunc_name);
                 let arguments_str = arguments.join(", ");
                 let confidence_str = if confidence == "High" {
                     "\x1b[1;31mHigh\x1b[0m"
                 } else {
                     confidence
                 };
+                let bold_libfunc_name = format!("\x1b[1m{}\x1b[0m", truncated_libfunc_name);
                 if confidence == "High" {
                     result.push_str(&format!(
                         "{}: parameters {} could be used to trigger a felt overflow/underflow (Confidence: {})\n",
@@ -137,12 +140,23 @@ impl Detector for FeltOverflowDetector {
                 } else {
                     result.push_str(&format!(
                         "{}: method {} could be used to trigger a felt overflow/underflow (Confidence: {})\n",
-                        function_name, libfunc_name, confidence
+                        function_name, bold_libfunc_name, confidence
                     ));
                 }
             }
         }
 
         result
+    }
+}
+
+/// Helper function to truncate function names longer than 80 characters
+fn truncate_function_name(name: &str) -> String {
+    if name.len() > 80 {
+        let first_part = &name[..38];
+        let last_part = &name[name.len() - 38..];
+        format!("{}{}{}", first_part, "...", last_part)
+    } else {
+        name.to_string()
     }
 }
