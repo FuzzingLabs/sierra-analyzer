@@ -113,9 +113,9 @@ fn test_integer_overflow_detector() {
     // Detected felt overflows
     let statistics = detector.detect(&mut decompiler);
 
-    let expected_output = r#"cairo_level_tests::contracts::test_contract::test_contract::__wrapper__Impl__test: method felt252_add could be used to trigger a felt overflow/underflow (Confidence: Low)
-cairo_level_tests::contracts::test_contract::test_contract::__wrapper__Impl__test: method felt252_add could be used to trigger a felt overflow/underflow (Confidence: Low)
-"#;
+    let expected_output = "cairo_level_tests::contracts::test_contract::test_contract::__wrapper__Impl__test: method \u{1b}[1mfelt252_add\u{1b}[0m could be used to trigger a felt overflow/underflow (Confidence: Low)
+cairo_level_tests::contracts::test_contract::test_contract::__wrapper__Impl__test: method \u{1b}[1mfelt252_add\u{1b}[0m could be used to trigger a felt overflow/underflow (Confidence: Low)
+";
 
     assert_eq!(statistics, expected_output);
 }
