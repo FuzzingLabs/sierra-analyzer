@@ -149,29 +149,36 @@ It is also possible to use the `sierra-analyzer-lib` library to decompile serial
 
 ### Use it with a Scarb project
 
-First you need to build the project using Scarb : 
+> [!TIP]
+> There are examples of repositories that uses Scarb in [examples/scarb](/examples/scarb/scarb_example/). 
+
+First you need to build the project using Scarb :
 
 ```sh
 scarb build
 ```
 
-Then you can run the sierra-decompiler using the `--scarb` flag : 
+After that, you will need to select the contract you want to work on using the `contract` flag. If you need to list the available contracts, you can use the `--list-contracts` option :
+
+```sh
+sierra-decompiler --scarb --list-contracts
+```
+
+Now, let's say you want to work on one of the contracts whose name is `unimpaired_cairo_Overflow`, then you can analyse it : 
 
 ```sh
 // Run the decompiler
-sierra-decompiler --scarb
-
-// Run the analyzer
-sierra-decompiler --scarb -a
+sierra-decompiler --scarb --contract unimpaired_cairo_Overflow 
 
 // Generate the control-flow graph
-sierra-decompiler --scarb --cfg
+sierra-decompiler --scarb --contract unimpaired_cairo_Overflow --cfg
 
 // Generate the callgraph
-sierra-decompiler --scarb --callgraph
-```
+sierra-decompiler --scarb --contract unimpaired_cairo_Overflow --callgraph
 
-There are examples of repositories that uses scarb in [examples/scarb](/examples/scarb/scarb_example/). 
+// Run the detectors
+sierra-decompiler --scarb --contract unimpaired_cairo_Overflow -d
+```
 
 ### Features
 
@@ -181,3 +188,4 @@ There are examples of repositories that uses scarb in [examples/scarb](/examples
 - [X] Informational & Security detectors
 - [x] Fetching contracts from Starknet
 - [x] Symbolic execution
+- [x] Scarb projects support
