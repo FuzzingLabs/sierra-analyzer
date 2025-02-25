@@ -61,6 +61,9 @@ lazy_static! {
         Regex::new(r"function_call<user@.+::safe_math::add>").unwrap(),
     ];
 
+    // Write operation
+    pub static ref WRITE_REGEX: Regex = Regex::new(r"function_call<user@.+::write>").unwrap();
+
     // User defined function
     pub static ref USER_DEFINED_FUNCTION_REGEX: Regex = Regex::new(r"(function_call|(\[[0-9]+\]))(::)?<user@(?P<function_id>.+)>").unwrap();
 
