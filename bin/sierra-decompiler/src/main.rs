@@ -73,9 +73,20 @@ struct Args {
     #[clap(long)]
     scarb: bool,
 
+    /// Contract name (required when using --scarb)
+    #[clap(
+        long,
+        help = "The name of the contract to analyze when using the --scarb flag"
+    )]
+    contract: Option<String>,
+
     /// List all available detector names
     #[clap(long)]
     detector_help: bool,
+
+    /// List all available contracts in the target directory
+    #[clap(long, help = "List all available contracts in the target directory")]
+    list_contracts: bool,
 }
 
 #[tokio::main]
@@ -91,6 +102,30 @@ async fn main() {
     // Ensure either remote, Sierra file, or scarb is provided
     if args.remote.is_empty() && args.sierra_file.is_none() && !args.scarb {
         eprintln!("Error: Either remote, Sierra file, or --scarb flag must be provided");
+        return;
+    }
+
+    // Ensure --contract and --list-contracts are only used with --scarb
+    if !args.scarb && (args.contract.is_some() || args.list_contracts) {
+        eprintln!("Error: --contract and --list-contracts can only be used with the --scarb flag");
+        return;
+    }
+
+    // Handle the --list-contracts flag
+    if args.list_contracts {
+        list_available_contracts();
+        return;
+    }
+
+    // Handle the case where --scarb is used without --contract or --contract is used without an argument
+    if args.scarb && args.contract.is_none() {
+        list_available_contracts();
+        return;
+    }
+
+    // Handle the case where --contract is used without an argument
+    if args.contract.is_some() && args.contract.as_ref().unwrap().is_empty() {
+        list_available_contracts();
         return;
     }
 
@@ -138,7 +173,7 @@ async fn main() {
 /// Load the Sierra program from either a remote source, a local file, or scarb
 async fn load_program(args: &Args) -> Result<SierraProgram, String> {
     if args.scarb {
-        load_scarb_program().await
+        load_scarb_program(args).await
     } else if !args.remote.is_empty() {
         load_remote_program(args).await
     } else {
@@ -214,14 +249,14 @@ fn load_local_program(args: &Args) -> Result<SierraProgram, String> {
 }
 
 /// Load the Sierra program from the /target directory
-async fn load_scarb_program() -> Result<SierraProgram, String> {
+async fn load_scarb_program(args: &Args) -> Result<SierraProgram, String> {
     let target_dir = Path::new("./target/dev/");
 
     // Read the directory contents
     let entries =
         fs::read_dir(target_dir).map_err(|e| format!("Failed to read directory: {}", e))?;
 
-    // Find the file that ends with "contract_class.json"
+    // Find the file that matches the contract name and ends with "contract_class.json"
     let contract_class_file = entries
         .filter_map(|entry| {
             let entry = entry.ok()?;
@@ -230,7 +265,9 @@ async fn load_scarb_program() -> Result<SierraProgram, String> {
                 && path
                     .file_name()
                     .and_then(|name| name.to_str())
-                    .map_or(false, |name| name.ends_with("contract_class.json"))
+                    .map_or(false, |name| {
+                        name == format!("{}.contract_class.json", args.contract.as_ref().unwrap())
+                    })
             {
                 Some(path)
             } else {
@@ -243,7 +280,11 @@ async fn load_scarb_program() -> Result<SierraProgram, String> {
     let contract_class_file = if let Some(file) = contract_class_file {
         file
     } else {
-        eprintln!("You need to run scarb build before running the sierra-analyzer");
+        eprintln!(
+            "Contract file '{}.contract_class.json' not found in the target directory",
+            args.contract.as_ref().unwrap()
+        );
+        list_available_contracts();
         exit(1);
     };
 
@@ -399,5 +440,50 @@ fn print_available_detectors() {
             detector.id(),
             detector.description()
         );
+    }
+}
+
+/// List all available contracts in the target directory
+fn list_available_contracts() {
+    let target_dir = Path::new("./target/dev/");
+
+    // Read the directory contents
+    let entries = match fs::read_dir(target_dir) {
+        Ok(entries) => entries,
+        Err(e) => {
+            eprintln!("Failed to read directory: {}", e);
+            return;
+        }
+    };
+
+    let mut contracts = Vec::new();
+
+    // Collect all contract names
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file()
+            && path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map_or(false, |name| name.ends_with(".contract_class.json"))
+        {
+            if let Some(file_name) = path.file_name().and_then(|name| name.to_str()) {
+                // Remove the ".contract_class.json" suffix
+                let contract_name = file_name
+                    .trim_end_matches(".contract_class.json")
+                    .to_string();
+                contracts.push(contract_name);
+            }
+        }
+    }
+
+    // Print the available contracts
+    if contracts.is_empty() {
+        println!("No contracts found in the target directory.");
+    } else {
+        println!("Available contracts:");
+        for contract in contracts {
+            println!("- {}", contract);
+        }
     }
 }
