@@ -2,6 +2,7 @@ pub mod controlled_library_call_detector;
 pub mod detector;
 pub mod felt_overflow_detector;
 pub mod functions_detector;
+pub mod l1_handler_detector;
 pub mod rounding_error_detector;
 pub mod statistics_detector;
 pub mod strings_detector;
@@ -11,6 +12,7 @@ use crate::detectors::controlled_library_call_detector::ControlledLibraryCallDet
 use crate::detectors::detector::Detector;
 use crate::detectors::felt_overflow_detector::FeltOverflowDetector;
 use crate::detectors::functions_detector::FunctionsDetector;
+use crate::detectors::l1_handler_detector::L1HandlerDetector;
 use crate::detectors::rounding_error_detector::RoundingErrorDetector;
 use crate::detectors::statistics_detector::StatisticsDetector;
 use crate::detectors::strings_detector::StringsDetector;
@@ -36,6 +38,7 @@ pub fn get_detectors() -> Vec<Box<dyn Detector>> {
         TestsGeneratorDetector,
         ControlledLibraryCallDetector,
         FeltOverflowDetector,
-        RoundingErrorDetector
+        RoundingErrorDetector,
+        L1HandlerDetector
     )
 }
