@@ -5,6 +5,9 @@
 Sierra Analyzer is a security toolkit designed for analyzing Sierra files. It includes: a decompiler, a call graph</br> generator, a control-flow graph generator, and various security detectors.
 </div>
 
+> [!IMPORTANT]  
+> This repository is no longer maintained. If you have any questions or need further assistance, please contact [FuzzingLabs](https://fuzzinglabs.com/).
+
 ---
 
 - [Project structure](#project-structure)
